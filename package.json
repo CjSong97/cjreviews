@@ -12,6 +12,14 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^6.3.8"
+    "@astrojs/svelte": "^8.1.2",
+    "@notionhq/client": "^5.22.0",
+    "astro": "^6.3.8",
+    "svelte": "^5.55.9",
+    "typescript": "^6.0.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1"
   }
 }

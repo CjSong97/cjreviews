@@ -1,0 +1,26 @@
+---
+import { getPublishedPosts } from "../../lib/notion/adapter"
+import type { ReviewPost } from "../../lib/cms/types"
+import ReviewCard from "../../components/ReviewCard.svelte"
+
+const posts = await getPublishedPosts()
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reviews — CJ Reviews</title>
+    <meta name="description" content="Earphone, headphone, and game reviews by CJ." />
+  </head>
+  <body>
+    <main>
+      <h1>Reviews</h1>
+      <div class="grid">
+        {posts.map((post) => (
+          <ReviewCard post={post} client:load />
+        ))}
+      </div>
+    </main>
+  </body>
+</html>

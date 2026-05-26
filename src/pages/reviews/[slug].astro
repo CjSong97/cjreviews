@@ -1,0 +1,65 @@
+---
+import { getPublishedPosts, getPostBySlug, getPostBlocks } from "../../lib/notion/adapter"
+import type { ReviewPost } from "../../lib/cms/types"
+import NotionRenderer from "../../components/NotionRenderer.svelte"
+
+export async function getStaticPaths() {
+  const posts = await getPublishedPosts()
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props: { post },
+  }))
+}
+
+const { post } = Astro.props as { post: ReviewPost }
+const blocks = await getPostBlocks(post.id)
+
+const seoTitle = post.seoTitle ?? post.title
+const seoDesc = post.seoDescription ?? post.description ?? ""
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{seoTitle} — CJ Reviews</title>
+    <meta name="description" content={seoDesc} />
+    {post.coverImage && <meta property="og:image" content={post.coverImage} />}
+  </head>
+  <body>
+    <main>
+      <header class="review-header">
+        {post.coverImage && <img src={post.coverImage} alt={post.title} class="cover" />}
+        <h1>{post.title}</h1>
+        {post.description && <p class="description">{post.description}</p>}
+
+        <div class="meta">
+          {post.brand && <span class="brand">{post.brand}</span>}
+          {post.productName && <span class="product">{post.productName}</span>}
+          {post.price && <span class="price">£{post.price}</span>}
+          {post.rating !== null && (
+            <span class="rating">{post.rating} / 100</span>
+          )}
+        </div>
+
+        <div class="tags">
+          {post.tags.map((tag) => (
+            <a href={`/tags/${tag.toLowerCase()}`} class="tag">{tag}</a>
+          ))}
+        </div>
+
+        {post.publishedAt && (
+          <time datetime={post.publishedAt}>
+            {new Date(post.publishedAt).toLocaleDateString("en-GB", {
+              year: "numeric", month: "long", day: "numeric"
+            })}
+          </time>
+        )}
+      </header>
+
+      <article>
+        <NotionRenderer blocks={blocks} client:load />
+      </article>
+    </main>
+  </body>
+</html>
