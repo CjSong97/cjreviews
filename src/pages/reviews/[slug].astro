@@ -28,6 +28,7 @@ const seoDesc = post.seoDescription ?? post.description ?? ""
   title={seoTitle}
   description={seoDesc}
   ogImage={post.coverImage ?? undefined}
+  canonicalUrl={Astro.url.href}
 >
   <div class="page-wrap">
     <ReviewHero {post} client:load />

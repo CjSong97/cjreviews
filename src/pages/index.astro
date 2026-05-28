@@ -9,8 +9,8 @@ const latest = posts.filter((p) => !p.featured)
 ---
 
 <BaseLayout
-  title="CJ Reviews"
   description="Honest reviews of earphones, headphones, and games by CJ."
+  canonicalUrl={Astro.url.href}
 >
   <div class="page-wrap">
     {featured.length > 0 && (
