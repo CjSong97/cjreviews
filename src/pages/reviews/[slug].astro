@@ -1,7 +1,10 @@
 ---
-import { getPublishedPosts, getPostBySlug, getPostBlocks } from "../../lib/notion/adapter"
+import { getPublishedPosts, getPostBlocks, getRelatedPosts } from "../../lib/notion/adapter"
 import type { ReviewPost } from "../../lib/cms/types"
+import BaseLayout from "../../layouts/BaseLayout.astro"
+import ReviewHero from "../../components/ReviewHero.svelte"
 import NotionRenderer from "../../components/NotionRenderer.svelte"
+import RelatedPosts from "../../components/RelatedPosts.svelte"
 
 export async function getStaticPaths() {
   const posts = await getPublishedPosts()
@@ -12,54 +15,43 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props as { post: ReviewPost }
-const blocks = await getPostBlocks(post.id)
+const [blocks, related] = await Promise.all([
+  getPostBlocks(post.id),
+  getRelatedPosts(post, { limit: 4 }),
+])
 
 const seoTitle = post.seoTitle ?? post.title
 const seoDesc = post.seoDescription ?? post.description ?? ""
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{seoTitle} — CJ Reviews</title>
-    <meta name="description" content={seoDesc} />
-    {post.coverImage && <meta property="og:image" content={post.coverImage} />}
-  </head>
-  <body>
-    <main>
-      <header class="review-header">
-        {post.coverImage && <img src={post.coverImage} alt={post.title} class="cover" />}
-        <h1>{post.title}</h1>
-        {post.description && <p class="description">{post.description}</p>}
+<BaseLayout
+  title={seoTitle}
+  description={seoDesc}
+  ogImage={post.coverImage ?? undefined}
+>
+  <div class="page-wrap">
+    <ReviewHero {post} client:load />
 
-        <div class="meta">
-          {post.brand && <span class="brand">{post.brand}</span>}
-          {post.productName && <span class="product">{post.productName}</span>}
-          {post.price && <span class="price">£{post.price}</span>}
-          {post.rating !== null && (
-            <span class="rating">{post.rating} / 100</span>
-          )}
-        </div>
+    <article class="article-body">
+      <NotionRenderer {blocks} client:load />
+    </article>
 
-        <div class="tags">
-          {post.tags.map((tag) => (
-            <a href={`/tags/${tag.toLowerCase()}`} class="tag">{tag}</a>
-          ))}
-        </div>
+    <RelatedPosts posts={related} client:load />
+  </div>
+</BaseLayout>
 
-        {post.publishedAt && (
-          <time datetime={post.publishedAt}>
-            {new Date(post.publishedAt).toLocaleDateString("en-GB", {
-              year: "numeric", month: "long", day: "numeric"
-            })}
-          </time>
-        )}
-      </header>
+<style>
+  .page-wrap {
+    max-width: 80rem;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 4rem;
+  }
 
-      <article>
-        <NotionRenderer blocks={blocks} client:load />
-      </article>
-    </main>
-  </body>
-</html>
+  .article-body {
+    max-width: 72ch;
+    margin: 0 auto;
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: var(--color-text, #111827);
+  }
+</style>
