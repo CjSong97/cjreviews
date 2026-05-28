@@ -1,0 +1,159 @@
+---
+const navLinks = [
+  { href: "/", label: "Home" },
+  { href: "/reviews", label: "Reviews" },
+  { href: "/about", label: "About" },
+]
+
+const currentPath = Astro.url.pathname
+---
+
+<header class="site-header">
+  <nav class="nav-inner" aria-label="Main navigation">
+    <a href="/" class="logo" aria-label="CJ Reviews home">
+      CJ Reviews
+    </a>
+
+    <button class="nav-toggle" aria-controls="nav-menu" aria-expanded="false" aria-label="Toggle navigation">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <ul class="nav-links" id="nav-menu" role="list">
+      {navLinks.map(({ href, label }) => (
+        <li>
+          <a
+            href={href}
+            class:list={["nav-link", { active: currentPath === href || (href !== "/" && currentPath.startsWith(href)) }]}
+          >
+            {label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+</header>
+
+<script>
+  const toggle = document.querySelector(".nav-toggle") as HTMLButtonElement
+  const menu = document.getElementById("nav-menu")
+
+  toggle?.addEventListener("click", () => {
+    const expanded = toggle.getAttribute("aria-expanded") === "true"
+    toggle.setAttribute("aria-expanded", String(!expanded))
+    menu?.classList.toggle("open")
+  })
+</script>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--color-bg, #fff);
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+    backdrop-filter: blur(8px);
+  }
+
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 80rem;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+    height: 3.5rem;
+  }
+
+  .logo {
+    font-family: var(--font-serif, serif);
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text, #111827);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+  }
+
+  .logo:hover {
+    color: var(--color-accent, #2563eb);
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    list-style: none;
+  }
+
+  .nav-link {
+    display: block;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--color-text-muted, #6b7280);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: color 150ms, background 150ms;
+  }
+
+  .nav-link:hover,
+  .nav-link:focus-visible {
+    color: var(--color-text, #111827);
+    background: var(--color-surface, #f3f4f6);
+  }
+
+  .nav-link.active {
+    color: var(--color-text, #111827);
+    font-weight: 600;
+  }
+
+  .nav-toggle {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 6px;
+  }
+
+  .nav-toggle span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--color-text, #111827);
+    border-radius: 2px;
+    transition: transform 240ms, opacity 150ms;
+  }
+
+  @media (max-width: 600px) {
+    .nav-toggle {
+      display: flex;
+    }
+
+    .nav-links {
+      display: none;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+      position: absolute;
+      top: 3.5rem;
+      left: 0;
+      right: 0;
+      background: var(--color-bg, #fff);
+      border-bottom: 1px solid var(--color-border, #e5e7eb);
+      padding: 0.5rem 1.25rem 1rem;
+    }
+
+    .nav-links.open {
+      display: flex;
+    }
+
+    .nav-link {
+      width: 100%;
+      padding: 0.625rem 0.5rem;
+    }
+  }
+</style>

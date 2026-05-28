@@ -1,0 +1,56 @@
+---
+const year = new Date().getFullYear()
+---
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <p class="copyright">© {year} CJ Reviews</p>
+    <nav aria-label="Footer navigation">
+      <ul class="footer-links" role="list">
+        <li><a href="/reviews">Reviews</a></li>
+        <li><a href="/about">About</a></li>
+        <li><a href="/rss.xml">RSS</a></li>
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--color-border, #e5e7eb);
+    padding: 1.5rem 0;
+  }
+
+  .footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    max-width: 80rem;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+  }
+
+  .copyright {
+    font-size: 0.875rem;
+    color: var(--color-text-subtle, #9ca3af);
+  }
+
+  .footer-links {
+    display: flex;
+    gap: 1rem;
+    list-style: none;
+  }
+
+  .footer-links a {
+    font-size: 0.875rem;
+    color: var(--color-text-muted, #6b7280);
+    text-decoration: none;
+  }
+
+  .footer-links a:hover {
+    color: var(--color-text, #111827);
+  }
+</style>

@@ -1,17 +1,65 @@
 ---
+import { getPublishedPosts } from "../lib/notion/adapter"
+import BaseLayout from "../layouts/BaseLayout.astro"
+import ReviewCard from "../components/ReviewCard.svelte"
 
+const posts = await getPublishedPosts()
+const featured = posts.filter((p) => p.featured)
+const latest = posts.filter((p) => !p.featured)
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<BaseLayout
+  description="Honest reviews of earphones, headphones, and games by CJ."
+  canonicalUrl={Astro.url.href}
+>
+  <div class="page-wrap">
+    {featured.length > 0 && (
+      <section class="section" aria-labelledby="featured-heading">
+        <h2 id="featured-heading" class="section-title">Featured</h2>
+        <div class="grid grid-featured">
+          {featured.map((post) => (
+            <ReviewCard post={post} client:load />
+          ))}
+        </div>
+      </section>
+    )}
+
+    <section class="section" aria-labelledby="latest-heading">
+      <h2 id="latest-heading" class="section-title">Latest Reviews</h2>
+      <div class="grid">
+        {latest.map((post) => (
+          <ReviewCard post={post} client:load />
+        ))}
+      </div>
+    </section>
+  </div>
+</BaseLayout>
+
+<style>
+  .page-wrap {
+    max-width: 80rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  .section-title {
+    font-family: var(--font-serif, serif);
+    font-size: 1.375rem;
+    font-weight: 600;
+    color: var(--color-text, #111827);
+    margin-bottom: 1.25rem;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: 1.25rem;
+  }
+
+  .grid-featured {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  }
+</style>
