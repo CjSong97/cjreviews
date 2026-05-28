@@ -89,14 +89,21 @@ function getDate(props: PageObjectResponse["properties"], name: string): string 
   return null
 }
 
-function getCoverImage(props: PageObjectResponse["properties"]): string | null {
-  const prop = props["Cover Image"]
-  if (prop?.type !== "files") return null
-  if (!prop.files.length) return null
+function getCoverImage(page: PageObjectResponse): string | null {
+  // Check custom "Cover Image" files property first
+  const prop = page.properties["Cover Image"]
+  if (prop?.type === "files" && prop.files.length > 0) {
+    const first = prop.files[0]
+    if (first.type === "file") return first.file.url
+    if (first.type === "external") return first.external.url
+  }
 
-  const first = prop.files[0]
-  if (first.type === "file") return first.file.url
-  if (first.type === "external") return first.external.url
+  // Fall back to native Notion page cover (the banner set in the Notion UI)
+  if (page.cover) {
+    if (page.cover.type === "file") return page.cover.file.url
+    if (page.cover.type === "external") return page.cover.external.url
+  }
+
   return null
 }
 
@@ -169,7 +176,7 @@ export function pageToReviewPost(page: PageObjectResponse): ReviewPost {
     rating: getNumber(props, "Rating"),
     price: getNumber(props, "Price"),
     description: getText(props, "Description"),
-    coverImage: getCoverImage(props),
+    coverImage: getCoverImage(page),
     seoTitle: getText(props, "SEO Title"),
     seoDescription: getText(props, "SEO Description"),
     publishedAt: getDate(props, "Published At"),
