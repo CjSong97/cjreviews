@@ -1,8 +1,21 @@
 import type { PageObjectResponse, RichTextItemResponse } from "@notionhq/client/build/src/api-endpoints"
+import { z } from "zod"
 import type { ReviewPost, ContentType, ProductType } from "../cms/types"
 import { getNotionClient } from "./client"
 
-const DATABASE_ID = import.meta.env.NOTION_DATABASE_ID
+const NOTION_DATA_SOURCE_ID = import.meta.env.NOTION_DATA_SOURCE_ID
+if (!NOTION_DATA_SOURCE_ID) {
+  throw new Error("NOTION_DATA_SOURCE_ID is not set (must be a Notion data_source_id)")
+}
+
+/**
+ * Controls how strict published filtering should be.
+ * - "checkboxOnly": Published checkbox must be true. Status is ignored.
+ * - "preferStatus": Published must be true; if Status exists, it must be "Published".
+ * - "requireStatus": Published must be true AND Status must equal "Published".
+ */
+const PUBLISHED_MODE: "checkboxOnly" | "preferStatus" | "requireStatus" =
+  (import.meta.env.NOTION_PUBLISHED_MODE as any) ?? "preferStatus"
 
 // ── Primitive helpers ─────────────────────────────────────────────────────────
 
@@ -10,10 +23,13 @@ function richText(items: RichTextItemResponse[]): string {
   return items.map((r) => r.plain_text).join("")
 }
 
-function extractPageId(url: string): string {
-  // Notion page URLs end with a 32-char hex ID (with or without dashes)
-  const match = url.match(/([a-f0-9]{32}|[a-f0-9-]{36})$/)
-  return match ? match[1].replace(/-/g, "") : url
+/**
+ * Notion page.id is already usable as block_id. If you have a URL, this helps.
+ * Returns a 32-char hex id (no dashes) when it can.
+ */
+export function extractPageId(input: string): string {
+  const match = input.match(/([a-f0-9]{32}|[a-f0-9-]{36})$/i)
+  return match ? match[1].replace(/-/g, "") : input
 }
 
 // ── Property extractors ───────────────────────────────────────────────────────
@@ -21,13 +37,15 @@ function extractPageId(url: string): string {
 function getSlug(props: PageObjectResponse["properties"]): string | null {
   const canonical = props["Canonical Slug"]
   if (canonical?.type === "rich_text" && canonical.rich_text.length > 0) {
-    return richText(canonical.rich_text)
+    const v = richText(canonical.rich_text).trim()
+    return v.length > 0 ? v : null
   }
 
   // Fallback to formula slug
   const formula = props["Slug"]
   if (formula?.type === "formula" && formula.formula.type === "string") {
-    return formula.formula.string
+    const v = (formula.formula.string ?? "").trim()
+    return v.length > 0 ? v : null
   }
 
   return null
@@ -35,37 +53,28 @@ function getSlug(props: PageObjectResponse["properties"]): string | null {
 
 function getMultiSelect(props: PageObjectResponse["properties"], name: string): string[] {
   const prop = props[name]
-  if (prop?.type === "multi_select") {
-    return prop.multi_select.map((o) => o.name)
-  }
+  if (prop?.type === "multi_select") return prop.multi_select.map((o) => o.name)
   return []
 }
 
-function getSelect<T extends string>(
-  props: PageObjectResponse["properties"],
-  name: string
-): T | null {
+function getSelect<T extends string>(props: PageObjectResponse["properties"], name: string): T | null {
   const prop = props[name]
-  if (prop?.type === "select" && prop.select) {
-    return prop.select.name as T
-  }
+  if (prop?.type === "select" && prop.select) return prop.select.name as T
   return null
 }
 
 function getText(props: PageObjectResponse["properties"], name: string): string | null {
   const prop = props[name]
   if (prop?.type === "rich_text") {
-    const text = richText(prop.rich_text)
-    return text.length > 0 ? text : null
+    const v = richText(prop.rich_text).trim()
+    return v.length > 0 ? v : null
   }
   return null
 }
 
 function getNumber(props: PageObjectResponse["properties"], name: string): number | null {
   const prop = props[name]
-  if (prop?.type === "number" && prop.number !== null) {
-    return prop.number
-  }
+  if (prop?.type === "number" && prop.number !== null) return prop.number
   return null
 }
 
@@ -76,33 +85,71 @@ function getCheckbox(props: PageObjectResponse["properties"], name: string): boo
 
 function getDate(props: PageObjectResponse["properties"], name: string): string | null {
   const prop = props[name]
-  if (prop?.type === "date" && prop.date) {
-    return prop.date.start
-  }
+  if (prop?.type === "date" && prop.date?.start) return prop.date.start
   return null
 }
 
 function getCoverImage(props: PageObjectResponse["properties"]): string | null {
   const prop = props["Cover Image"]
-  if (prop?.type === "files" && prop.files.length > 0) {
-    const first = prop.files[0]
-    if (first.type === "file") return first.file.url
-    if (first.type === "external") return first.external.url
-  }
+  if (prop?.type !== "files") return null
+  if (!prop.files.length) return null
+
+  const first = prop.files[0]
+  if (first.type === "file") return first.file.url
+  if (first.type === "external") return first.external.url
   return null
 }
+
+function hasStatusProperty(props: PageObjectResponse["properties"]): boolean {
+  return !!props["Status"] && props["Status"]?.type === "status"
+}
+
+function getStatusName(props: PageObjectResponse["properties"]): string | null {
+  const prop = props["Status"]
+  if (prop?.type === "status" && prop.status?.name) return prop.status.name
+  return null
+}
+
+// ── Zod validation ────────────────────────────────────────────────────────────
+
+/**
+ * This is runtime validation at the boundary.
+ * Keep it permissive where Notion values may be missing.
+ * If your ../cms/types are stricter, adjust here to match.
+ */
+const ReviewPostSchema: z.ZodType<ReviewPost> = z.object({
+  id: z.string(),
+  slug: z.string().min(1),
+  title: z.string().min(1),
+  contentType: z.string().nullable(),   // ContentType | null
+  productType: z.string().nullable(),   // ProductType | null
+  productName: z.string().nullable(),
+  brand: z.string().nullable(),
+  tags: z.array(z.string()),
+  rating: z.number().nullable(),
+  price: z.number().nullable(),
+  description: z.string().nullable(),
+  coverImage: z.string().url().nullable(),
+  seoTitle: z.string().nullable(),
+  seoDescription: z.string().nullable(),
+  publishedAt: z.string().nullable(),
+  updatedAt: z.string(),
+  featured: z.boolean(),
+  notionUrl: z.string().url(),
+}) as any
 
 // ── Main transformer ──────────────────────────────────────────────────────────
 
 export function pageToReviewPost(page: PageObjectResponse): ReviewPost {
   const props = page.properties
-  const title = props["Title"]
-  const titleText =
-    title?.type === "title" ? richText(title.title) : "Untitled"
+
+  const titleProp = props["Title"]
+  const titleText = titleProp?.type === "title" ? richText(titleProp.title).trim() : ""
+  const title = titleText.length > 0 ? titleText : "Untitled"
 
   const slug = getSlug(props)
   if (!slug) {
-    throw new Error(`Missing slug for page: ${titleText} (${page.id})`)
+    throw new Error(`Missing slug for page: ${title} (${page.id})`)
   }
 
   const updatedAt =
@@ -110,10 +157,10 @@ export function pageToReviewPost(page: PageObjectResponse): ReviewPost {
       ? props["Updated"].last_edited_time
       : page.last_edited_time
 
-  return {
+  const candidate: ReviewPost = {
     id: page.id,
     slug,
-    title: titleText,
+    title,
     contentType: getSelect<ContentType>(props, "Content Type"),
     productType: getSelect<ProductType>(props, "Product Type"),
     productName: getText(props, "Product Name"),
@@ -130,26 +177,65 @@ export function pageToReviewPost(page: PageObjectResponse): ReviewPost {
     featured: getCheckbox(props, "Featured"),
     notionUrl: page.url,
   }
+
+  // Runtime validation so “bad CMS data fails clearly”
+  const parsed = ReviewPostSchema.safeParse(candidate)
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")
+    throw new Error(`Invalid ReviewPost for page ${page.id} (${slug}): ${issues}`)
+  }
+
+  return parsed.data
 }
 
-// ── Queries ───────────────────────────────────────────────────────────────────
+// ── Query builders ───────────────────────────────────────────────────────────
+
+function buildPublishedFilter() {
+  // Always require Published checkbox per spec.
+  const baseAnd: any[] = [{ property: "Published", checkbox: { equals: true } }]
+
+  if (PUBLISHED_MODE === "checkboxOnly") {
+    return { and: baseAnd }
+  }
+
+  // In Notion query API, filtering on a missing property can error depending on DB schema.
+  // We *cannot* express “only enforce Status when available” purely in the API filter
+  // unless we know the DB definitely has Status.
+  //
+  // Strategy:
+  // - preferStatus: query by Published only, then post-filter by Status if the property exists on returned pages.
+  // - requireStatus: include Status in API filter (fastest, strictest).
+  if (PUBLISHED_MODE === "requireStatus") {
+    baseAnd.push({ property: "Status", status: { equals: "Published" } })
+  }
+
+  return { and: baseAnd }
+}
+
+function statusPostFilterIfNeeded(page: PageObjectResponse): boolean {
+  if (PUBLISHED_MODE === "checkboxOnly") return true
+  if (PUBLISHED_MODE === "requireStatus") return true // already enforced in API
+
+  // preferStatus
+  const props = page.properties
+  if (!hasStatusProperty(props)) return true
+  return getStatusName(props) === "Published"
+}
+
+// ── Public API ───────────────────────────────────────────────────────────────
 
 export async function getPublishedPosts(): Promise<ReviewPost[]> {
   const notion = getNotionClient()
 
   const response = await notion.dataSources.query({
-    data_source_id: DATABASE_ID,
-    filter: {
-      and: [
-        { property: "Published", checkbox: { equals: true } },
-        { property: "Status", status: { equals: "Published" } },
-      ],
-    },
+    data_source_id: NOTION_DATA_SOURCE_ID,
+    filter: buildPublishedFilter(),
     sorts: [{ property: "Published At", direction: "descending" }],
   })
 
   return response.results
     .filter((p): p is PageObjectResponse => p.object === "page")
+    .filter(statusPostFilterIfNeeded)
     .map(pageToReviewPost)
 }
 
@@ -157,24 +243,86 @@ export async function getPostBySlug(slug: string): Promise<ReviewPost | null> {
   const notion = getNotionClient()
 
   const response = await notion.dataSources.query({
-    data_source_id: DATABASE_ID,
+    data_source_id: NOTION_DATA_SOURCE_ID,
     filter: {
       and: [
-        { property: "Published", checkbox: { equals: true } },
-        { property: "Status", status: { equals: "Published" } },
+        ...buildPublishedFilter().and,
         { property: "Canonical Slug", rich_text: { equals: slug } },
       ],
     },
+    page_size: 1,
   })
 
-  const pages = response.results.filter(
-    (p): p is PageObjectResponse => p.object === "page"
-  )
-  return pages.length > 0 ? pageToReviewPost(pages[0]) : null
+  const pages = response.results.filter((p): p is PageObjectResponse => p.object === "page")
+  const page = pages.find(statusPostFilterIfNeeded)
+  return page ? pageToReviewPost(page) : null
 }
 
-export async function getPostBlocks(pageId: string) {
+/**
+ * Returns a de-duped, sorted list of all tags used by published posts.
+ * (This is simple + stable; if you later need counts, return a map.)
+ */
+export async function getAllTags(): Promise<string[]> {
+  const posts = await getPublishedPosts()
+  const set = new Set<string>()
+  for (const p of posts) for (const t of p.tags) set.add(t)
+  return Array.from(set).sort((a, b) => a.localeCompare(b))
+}
+
+/**
+ * Practical related-posts heuristic:
+ * - Prefer same productType, then overlap tags
+ * - Exclude same slug
+ * - Returns up to `limit` posts
+ */
+export async function getRelatedPosts(
+  post: ReviewPost,
+  opts?: { limit?: number }
+): Promise<ReviewPost[]> {
+  const limit = opts?.limit ?? 4
+  const all = await getPublishedPosts()
+
+  const targetTags = new Set(post.tags)
+  const score = (p: ReviewPost) => {
+    if (p.slug === post.slug) return -1
+    let s = 0
+    if (post.productType && p.productType === post.productType) s += 3
+    if (post.contentType && p.contentType === post.contentType) s += 1
+    for (const t of p.tags) if (targetTags.has(t)) s += 2
+    return s
+  }
+
+  return all
+    .map((p) => ({ p, s: score(p) }))
+    .filter(({ s }) => s > 0)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, limit)
+    .map(({ p }) => p)
+}
+
+/**
+ * Fetches the page blocks for rendering.
+ * - Accepts a page id or a page url.
+ * - Handles pagination.
+ */
+export async function getPostBlocks(pageIdOrUrl: string) {
   const notion = getNotionClient()
-  const response = await notion.blocks.children.list({ block_id: pageId })
-  return response.results
+  const blockId = extractPageId(pageIdOrUrl)
+
+  const results: any[] = []
+  let cursor: string | undefined = undefined
+
+  while (true) {
+    const resp = await notion.blocks.children.list({
+      block_id: blockId,
+      start_cursor: cursor,
+      page_size: 100,
+    })
+
+    results.push(...resp.results)
+    if (!resp.has_more) break
+    cursor = resp.next_cursor ?? undefined
+  }
+
+  return results
 }
