@@ -1,0 +1,226 @@
+---
+import { getPostsBySlugs, getPublishedPosts } from "../lib/notion/adapter"
+import { TRACE_LABELS, isAuthored } from "../lib/audio/curve"
+import BaseLayout from "../layouts/BaseLayout.astro"
+import CompareGraph from "../components/compare/CompareGraph.astro"
+import RackGrid from "../components/rack/RackGrid.astro"
+
+/**
+ * A/B tuning comparison.
+ *
+ * The comparison is entirely URL-driven (`?compare=slug-a,slug-b`) so it is
+ * shareable and needs no client state. Unknown or unpublished slugs are dropped
+ * rather than erroring, so a stale shared link still renders what it can.
+ */
+const raw = Astro.url.searchParams.get("compare") ?? ""
+const requested = raw
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean)
+  .slice(0, 3)
+
+const posts = await getPostsBySlugs(requested)
+const dropped = requested.length - posts.length
+
+const entries = posts.map((p) => ({
+  slug: p.slug,
+  title: p.title,
+  tuning: p.tuning,
+}))
+
+// Suggestions when there's nothing to compare yet.
+const suggestions = posts.length === 0 ? (await getPublishedPosts()).slice(0, 6) : []
+
+const authoredCount = posts.filter((p) => isAuthored(p.tuning)).length
+
+function money(value: number | null): string {
+  if (value === null) return "—"
+  return `£${Number.isInteger(value) ? value : value.toFixed(2)}`
+}
+---
+
+<BaseLayout
+  title="Compare"
+  description="Compare the tuning signatures of CJ's earphone and headphone reviews side by side."
+  canonicalUrl={Astro.url.href}
+>
+  <div class="shell page">
+    <header class="head">
+      <p class="label">Instrument</p>
+      <h1 class="title">Compare tunings</h1>
+      <p class="standfirst">
+        Overlay up to three reviews to see how their tuning signatures differ.
+      </p>
+    </header>
+
+    {
+      posts.length > 0 ? (
+        <>
+          <CompareGraph entries={entries} />
+
+          {dropped > 0 && (
+            <p class="label dropped">
+              <span class="numeral">{dropped}</span>
+              {dropped === 1 ? " requested review was" : " requested reviews were"} not found and
+              have been left out.
+            </p>
+          )}
+
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="visually-hidden">
+                Rating, price and tuning notes for the compared reviews
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col" class="label">Review</th>
+                  <th scope="col" class="label num">Score</th>
+                  <th scope="col" class="label num">Price</th>
+                  <th scope="col" class="label">Tuning note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {posts.map((post) => (
+                  <tr>
+                    <th scope="row" class="cell-title">
+                      <a href={`/reviews/${post.slug}`}>{post.title}</a>
+                    </th>
+                    <td class="numeral num">{post.rating ?? "—"}</td>
+                    <td class="numeral num">{money(post.price)}</td>
+                    <td class="cell-note">
+                      {post.tuningNote ??
+                        (isAuthored(post.tuning) ? "—" : "No tuning signature authored")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {authoredCount === 0 && (
+            <p class="notice bezel">
+              {TRACE_LABELS.noneAuthored} Adding the five band values in Notion is what turns this
+              into a comparison.
+            </p>
+          )}
+
+          <p class="reset">
+            <a href="/compare" class="label">Clear comparison</a>
+          </p>
+        </>
+      ) : (
+        <>
+          <p class="empty">
+            {raw
+              ? "None of the requested reviews could be found. They may have been unpublished or renamed."
+              : "Pick reviews to compare from the tray on any review page."}
+          </p>
+
+          <section aria-labelledby="pick-heading">
+            <h2 id="pick-heading" class="label section-title">Start from a review</h2>
+            <RackGrid posts={suggestions} headingLevel={3} />
+          </section>
+        </>
+      )
+    }
+  </div>
+</BaseLayout>
+
+<style>
+  .page {
+    padding-block: 2.5rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+  }
+
+  .head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .title {
+    font-size: var(--text-h1);
+    color: var(--color-text);
+  }
+
+  .standfirst {
+    max-width: 56ch;
+    color: var(--color-text-muted);
+  }
+
+  .dropped {
+    color: var(--color-alert);
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-small);
+  }
+
+  .table th,
+  .table td {
+    padding: 0.625rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--color-panel-edge);
+  }
+
+  .table thead th {
+    color: var(--color-signal);
+    border-bottom-color: var(--color-panel-edge);
+  }
+
+  .num {
+    text-align: right;
+  }
+
+  .cell-title a {
+    color: var(--color-text);
+    font-family: var(--font-display);
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .cell-title a:hover,
+  .cell-title a:focus-visible {
+    color: var(--color-signal);
+  }
+
+  .cell-note {
+    color: var(--color-text-muted);
+  }
+
+  .notice {
+    padding: 1rem 1.125rem;
+    border-radius: var(--radius);
+    background: var(--color-panel);
+    color: var(--color-text-muted);
+    max-width: 70ch;
+  }
+
+  .empty {
+    color: var(--color-text-muted);
+    max-width: 60ch;
+  }
+
+  .section-title {
+    margin-bottom: 1.125rem;
+    color: var(--color-signal);
+  }
+
+  .reset a {
+    color: var(--color-text-muted);
+    text-decoration: none;
+  }
+
+  .reset a:hover,
+  .reset a:focus-visible {
+    color: var(--color-signal);
+  }
+</style>

@@ -8,9 +8,12 @@
     generateCurve,
     hzToUnit,
     lerpCurves,
-    placeholderTuning,
+    decorativeTrace,
+    isAuthored,
+    TRACE_LABELS,
     unitToHz,
     type CurvePoint,
+    type TuningInput,
   } from "../../lib/audio/curve"
   import { canAnimate } from "../../lib/motion/scroll"
 
@@ -30,6 +33,8 @@
     productName: string | null
     rating: number | null
     price: number | null
+    /** null when CJ has not authored a tuning signature for this review. */
+    tuning: TuningInput | null
   }
 
   let { posts }: { posts: HeroPost[] } = $props()
@@ -37,8 +42,14 @@
   const VIEWBOX_W = 1000
   const VIEWBOX_H = 420
 
-  // Curves are precomputed once: deterministic, so SSR and client agree.
-  const curves = posts.map((p) => generateCurve(placeholderTuning(p.slug, p.rating)))
+  /*
+   * Authored signatures are used where they exist; otherwise the trace is
+   * decorative and must be labelled as such. Claiming CJ authored a hash would
+   * be a false statement about the review (DESIGN.md §8).
+   */
+  const curves = posts.map((p) =>
+    generateCurve(isAuthored(p.tuning) ? p.tuning : decorativeTrace(p.slug, p.rating))
+  )
 
   function toXY(curve: CurvePoint[]) {
     return curve.map((point) => ({
@@ -332,7 +343,7 @@
       {/if}
 
       <p class="label honesty">
-        Illustrative tuning signatures, authored by CJ — not measured data.
+        {current && isAuthored(current.tuning) ? TRACE_LABELS.authored : TRACE_LABELS.decorative}
       </p>
     </div>
 

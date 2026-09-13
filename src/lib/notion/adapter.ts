@@ -2,6 +2,7 @@ import type { PageObjectResponse, RichTextItemResponse } from "@notionhq/client/
 import { z } from "zod"
 import type { ReviewPost, ContentType, ProductType } from "../cms/types"
 import { getNotionClient } from "./client"
+import { getTuning } from "./tuning"
 import {
   resolveBlockImageSource,
   resolvePageCoverSource,
@@ -134,6 +135,19 @@ const ReviewPostSchema: z.ZodType<ReviewPost> = z.object({
   description: z.string().nullable(),
   // Not .url(): Notion-hosted covers become a site-relative proxy path.
   coverImage: z.string().min(1).nullable(),
+  // Permissive at the boundary, as the rest of this schema is: bands are
+  // already clamped by getTuning, and an unexpected extra key is not a reason
+  // to fail a page.
+  tuning: z
+    .object({
+      subBass: z.number().optional(),
+      bass: z.number().optional(),
+      mids: z.number().optional(),
+      upperMids: z.number().optional(),
+      treble: z.number().optional(),
+    })
+    .nullable(),
+  tuningNote: z.string().nullable(),
   seoTitle: z.string().nullable(),
   seoDescription: z.string().nullable(),
   publishedAt: z.string().nullable(),
@@ -174,6 +188,8 @@ export function pageToReviewPost(page: PageObjectResponse): ReviewPost {
     price: getNumber(props, "Price"),
     description: getText(props, "Description"),
     coverImage: getCoverImage(page),
+    tuning: getTuning(props),
+    tuningNote: getText(props, "Tuning Note"),
     seoTitle: getText(props, "SEO Title"),
     seoDescription: getText(props, "SEO Description"),
     publishedAt: getDate(props, "Published At"),
@@ -302,6 +318,33 @@ export async function getCanonicalTagName(tag: string): Promise<string | null> {
   const wanted = tag.trim().toLowerCase()
   const all = await getAllTags()
   return all.find((t) => t.toLowerCase() === wanted) ?? null
+}
+
+/**
+ * Resolves several slugs at once, for the comparison view.
+ *
+ * Unknown or unpublished slugs are dropped rather than throwing — a stale
+ * shared `?compare=` link should still render what it can. Order follows the
+ * caller's slugs so the URL controls the column order.
+ */
+export async function getPostsBySlugs(slugs: string[]): Promise<ReviewPost[]> {
+  if (slugs.length === 0) return []
+
+  const all = await getPublishedPosts()
+  const bySlug = new Map(all.map((p) => [p.slug.toLowerCase(), p]))
+
+  const seen = new Set<string>()
+  const found: ReviewPost[] = []
+
+  for (const slug of slugs) {
+    const key = slug.trim().toLowerCase()
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    const post = bySlug.get(key)
+    if (post) found.push(post)
+  }
+
+  return found
 }
 
 /**

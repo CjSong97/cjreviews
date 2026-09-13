@@ -6,6 +6,8 @@ import SpecPanel from "../../components/instrument/SpecPanel.astro"
 import ArticleBody from "../../components/article/ArticleBody.astro"
 import NotionRenderer from "../../components/article/NotionRenderer.astro"
 import RelatedPosts from "../../components/rack/RelatedPosts.astro"
+import CompareTray from "../../components/compare/CompareTray.svelte"
+import VerdictChart from "../../components/instrument/VerdictChart.astro"
 
 const { slug } = Astro.params
 const post = slug ? await getPostBySlug(slug) : null
@@ -21,6 +23,10 @@ const [blocks, related] = await Promise.all([
 
 const seoTitle = post.seoTitle ?? post.title
 const seoDesc = post.seoDescription ?? post.description ?? ""
+
+// Games have no frequency response to compare, so they get the verdict chart
+// and no tray (DESIGN.md §10, console mode).
+const isGame = post.productType === "Game"
 ---
 
 <BaseLayout
@@ -39,6 +45,8 @@ const seoDesc = post.seoDescription ?? post.description ?? ""
         <NotionRenderer blocks={blocks} postTitle={post.title} />
       </ArticleBody>
     </article>
+
+    {isGame ? <VerdictChart post={post} /> : <CompareTray slug={post.slug} title={post.title} client:idle />}
 
     <RelatedPosts posts={related} />
   </div>

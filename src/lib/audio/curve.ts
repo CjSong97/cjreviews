@@ -14,14 +14,15 @@
  * merely looking wrong. Tested in `curve.test.ts`.
  */
 
-export interface TuningInput {
-  /** Each −5…+5. A missing band is treated as 0 (neutral), not as unauthored. */
-  subBass?: number
-  bass?: number
-  mids?: number
-  upperMids?: number
-  treble?: number
-}
+/*
+ * The band values come from the CMS domain type rather than being redeclared
+ * here: one shape, one definition. `TuningInput` is kept as a reading alias for
+ * call sites that talk about "input to the generator".
+ */
+import type { Tuning } from "../cms/types"
+
+export type { Tuning }
+export type TuningInput = Tuning
 
 export interface CurvePoint {
   hz: number
@@ -36,7 +37,7 @@ export const SAMPLE_COUNT = 240
 export const DB_LIMIT = 12
 
 interface Band {
-  key: keyof TuningInput
+  key: keyof Tuning
   /** Notion property name this band is authored under. */
   field: string
   centerHz: number
@@ -91,6 +92,24 @@ function bandsDb(hz: number, input: TuningInput): number {
 export function isAuthored(input: TuningInput | null | undefined): boolean {
   return input != null
 }
+
+/**
+ * The two provenance labels, required by DESIGN.md §8.
+ *
+ * These are distinct because claiming CJ authored a hash-derived trace would be
+ * a false statement about the review, not merely imprecise wording.
+ */
+export const TRACE_LABELS = {
+  /** One authored signature, e.g. the hero. */
+  authored: "Illustrative tuning signature, authored by CJ — not measured data.",
+  /** Several, at least one authored, e.g. the compare graph. */
+  authoredPlural: "Illustrative tuning signatures, authored by CJ — not measured data.",
+  /** No signature exists for this review. Must not claim CJ authored anything. */
+  decorative: "Decorative trace — no tuning signature authored for this review yet.",
+  /** A comparison where nothing is authored is not a comparison; say so. */
+  noneAuthored:
+    "No tuning signatures authored for these reviews yet — the curves shown are the shared baseline, not a comparison.",
+} as const
 
 /**
  * Generates the curve. A `null` input returns the baseline alone, which callers
@@ -195,17 +214,21 @@ export function dbAtHz(curve: CurvePoint[], hz: number): number {
   return curve[curve.length - 1].db
 }
 
-// ── Phase 2 scaffolding ──────────────────────────────────────────────────────
+// ── Decorative fallback ──────────────────────────────────────────────────────
 
 /**
- * Derives a stand-in tuning signature from a review's rating and type, so the
- * hero has visibly different curves to morph between before the Notion fields
- * exist.
+ * Derives a stand-in trace from a review's slug and rating, so the hero has
+ * visibly different curves to morph between for reviews with no authored tuning.
  *
- * DELETE IN PHASE 3, once real authored values are available. Anything rendered
- * from this must be labelled unauthored — it is not CJ's judgement, it is a hash.
+ * **This is NOT a tuning signature.** It is a hash, it encodes no judgement
+ * about the product, and it must never be presented as CJ's opinion or compared
+ * against another product. Anything rendering it must say so — see
+ * `TRACE_LABELS.decorative`. Named `decorativeTrace` rather than
+ * `placeholderTuning` precisely so that it cannot be mistaken at a call site.
+ *
+ * Becomes unused once every review has authored values.
  */
-export function placeholderTuning(seed: string, rating: number | null): TuningInput {
+export function decorativeTrace(seed: string, rating: number | null): TuningInput {
   // Small deterministic string hash: same slug always yields the same curve.
   let h = 2166136261
   for (let i = 0; i < seed.length; i++) {

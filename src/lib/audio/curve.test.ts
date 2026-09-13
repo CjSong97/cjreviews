@@ -13,7 +13,7 @@ import {
   hzToUnit,
   isAuthored,
   lerpCurves,
-  placeholderTuning,
+  decorativeTrace,
   sampleFrequencies,
   unitToHz,
   type TuningInput,
@@ -245,21 +245,21 @@ describe("catmullRomPath", () => {
   })
 })
 
-describe("placeholderTuning (phase 2 scaffolding)", () => {
+describe("decorativeTrace (decorative fallback)", () => {
   it("is deterministic per slug", () => {
-    expect(placeholderTuning("truthear-hexa", 82)).toEqual(placeholderTuning("truthear-hexa", 82))
+    expect(decorativeTrace("truthear-hexa", 82)).toEqual(decorativeTrace("truthear-hexa", 82))
   })
 
   it("gives different slugs different characters", () => {
-    const a = placeholderTuning("truthear-hexa", 82)
-    const b = placeholderTuning("dunu-titan-s2", 82)
+    const a = decorativeTrace("truthear-hexa", 82)
+    const b = decorativeTrace("dunu-titan-s2", 82)
     expect(a).not.toEqual(b)
   })
 
   it("stays within the authorable range", () => {
     for (const slug of ["a", "blon-bl-03", "qkz-x-hbb", "fiio-fh5", ""]) {
       for (const rating of [null, 0, 55, 100]) {
-        for (const value of Object.values(placeholderTuning(slug, rating))) {
+        for (const value of Object.values(decorativeTrace(slug, rating))) {
           expect(Number.isFinite(value)).toBe(true)
           expect(Math.abs(value as number)).toBeLessThanOrEqual(5)
         }
@@ -268,7 +268,7 @@ describe("placeholderTuning (phase 2 scaffolding)", () => {
   })
 
   it("produces a renderable curve", () => {
-    const curve = generateCurve(placeholderTuning("blon-bl-03", 74))
+    const curve = generateCurve(decorativeTrace("blon-bl-03", 74))
     expect(curve).toHaveLength(SAMPLE_COUNT)
     for (const p of curve) expect(Number.isFinite(p.db)).toBe(true)
   })

@@ -1,0 +1,286 @@
+---
+import {
+  TRACE_LABELS,
+  catmullRomPath,
+  dbAtHz,
+  dbToUnit,
+  generateCurve,
+  hzToUnit,
+  isAuthored,
+  type Tuning,
+} from "../../lib/audio/curve"
+
+/**
+ * Overlays up to three tuning curves on one graticule.
+ *
+ * Server-rendered SVG, no hydration: the graph is static data, so it needs no
+ * canvas and works without JS and under reduced motion identically.
+ *
+ * Curves are distinguished by LINE STYLE and directly attached labels, never by
+ * colour alone — amber and phosphor green are not reliably distinguishable
+ * under protanopia or deuteranopia (DESIGN.md §3.5).
+ */
+interface Entry {
+  slug: string
+  title: string
+  tuning: Tuning | null
+}
+
+interface Props {
+  entries: Entry[]
+}
+
+const { entries } = Astro.props
+
+const W = 1000
+const H = 420
+
+/** Style, not colour, is the primary identifier. */
+const STYLES = [
+  { dash: "none", stroke: "var(--color-signal)", name: "solid" },
+  { dash: "10 7", stroke: "var(--color-phosphor)", name: "dashed" },
+  { dash: "2 6", stroke: "var(--color-magenta)", name: "dotted" },
+] as const
+
+const freqTicks = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10_000, 20_000]
+const dbTicks = [-12, -6, 0, 6, 12]
+
+const series = entries.slice(0, 3).map((entry, i) => {
+  const authored = isAuthored(entry.tuning)
+  const curve = generateCurve(entry.tuning)
+  const points = curve.map((p) => ({
+    x: hzToUnit(p.hz) * W,
+    y: dbToUnit(p.db) * H,
+  }))
+
+  return {
+    ...entry,
+    authored,
+    style: STYLES[i],
+    path: catmullRomPath(points),
+    // A short text equivalent so the graph is not image-only for screen readers.
+    summary: [60, 200, 1000, 3000, 8000]
+      .map((hz) => `${hz >= 1000 ? `${hz / 1000}k` : hz}Hz ${dbAtHz(curve, hz) >= 0 ? "+" : ""}${dbAtHz(curve, hz).toFixed(1)}dB`)
+      .join(", "),
+  }
+})
+
+const anyAuthored = series.some((s) => s.authored)
+---
+
+<figure class="graph-figure">
+  <div class="screen" data-surface="screen">
+    <svg
+      class="graph"
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      role="img"
+      aria-labelledby="graph-title graph-desc"
+    >
+      <title id="graph-title">Tuning signature comparison</title>
+      <desc id="graph-desc">
+        {
+          series
+            .map(
+              (s) =>
+                `${s.title}: ${s.authored ? s.summary : "no tuning signature authored, showing baseline"}`
+            )
+            .join(". ")
+        }
+      </desc>
+
+      <g class="grid" aria-hidden="true">
+        {
+          freqTicks.map((hz) => (
+            <line x1={hzToUnit(hz) * W} y1="0" x2={hzToUnit(hz) * W} y2={H} />
+          ))
+        }
+        {
+          dbTicks.map((db) => (
+            <line x1="0" y1={dbToUnit(db) * H} x2={W} y2={dbToUnit(db) * H} />
+          ))
+        }
+      </g>
+
+      {
+        series.map((s) => (
+          <path
+            d={s.path}
+            class:list={["curve", { unauthored: !s.authored }]}
+            style={`stroke: ${s.style.stroke}`}
+            stroke-dasharray={s.style.dash === "none" ? undefined : s.style.dash}
+          />
+        ))
+      }
+    </svg>
+
+    <div class="axis" aria-hidden="true">
+      {
+        freqTicks.map((hz) => (
+          <span class="tick numeral" style={`left: ${hzToUnit(hz) * 100}%`}>
+            {hz >= 1000 ? `${hz / 1000}k` : hz}
+          </span>
+        ))
+      }
+    </div>
+
+    <div class="db-axis" aria-hidden="true">
+      {
+        dbTicks.map((db) => (
+          <span class="tick numeral" style={`top: ${dbToUnit(db) * 100}%`}>
+            {db > 0 ? `+${db}` : db}
+          </span>
+        ))
+      }
+    </div>
+  </div>
+
+  {/* Direct labels, each carrying its own line sample — never a colour key. */}
+  <ul class="keys" role="list">
+    {
+      series.map((s) => (
+        <li class="key">
+          <svg class="sample" viewBox="0 0 34 8" aria-hidden="true">
+            <line
+              x1="1"
+              y1="4"
+              x2="33"
+              y2="4"
+              style={`stroke: ${s.style.stroke}`}
+              stroke-dasharray={s.style.dash === "none" ? undefined : s.style.dash}
+            />
+          </svg>
+          <span class="key-name">{s.title}</span>
+          <span class="label key-style">{s.style.name}</span>
+          {!s.authored && <span class="label key-warn">baseline only</span>}
+        </li>
+      ))
+    }
+  </ul>
+
+  {/* Wording comes from TRACE_LABELS, never a local copy: DESIGN.md §8
+      specifies it exactly, and two copies would drift. */}
+  <figcaption class="label honesty">
+    {anyAuthored ? TRACE_LABELS.authoredPlural : TRACE_LABELS.noneAuthored}
+  </figcaption>
+</figure>
+
+<style>
+  .graph-figure {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+  }
+
+  .screen {
+    position: relative;
+    padding: 1rem 2.5rem 1.75rem 2.75rem;
+    border-radius: var(--radius-lg);
+    box-shadow: inset 0 0 0 1px var(--color-panel-edge);
+    background: var(--color-ground);
+  }
+
+  .graph {
+    display: block;
+    width: 100%;
+    height: clamp(220px, 38vw, 420px);
+  }
+
+  .grid line {
+    stroke: var(--color-panel-edge);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .curve {
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  /* An unauthored curve is drawn faintly so it cannot pass for a real signature. */
+  .curve.unauthored {
+    opacity: 0.4;
+    stroke-width: 1.5;
+  }
+
+  .axis {
+    position: absolute;
+    left: 2.75rem;
+    right: 2.5rem;
+    bottom: 0.375rem;
+    height: 1rem;
+  }
+
+  .axis .tick {
+    position: absolute;
+    transform: translateX(-50%);
+  }
+
+  .db-axis {
+    position: absolute;
+    top: 1rem;
+    bottom: 1.75rem;
+    left: 0.5rem;
+    width: 2rem;
+  }
+
+  .db-axis .tick {
+    position: absolute;
+    transform: translateY(-50%);
+    text-align: right;
+    width: 100%;
+  }
+
+  .tick {
+    font-size: 0.625rem;
+    color: var(--color-text-muted);
+  }
+
+  .keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+  }
+
+  .key {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sample {
+    width: 34px;
+    height: 8px;
+    flex: 0 0 auto;
+  }
+
+  .sample line {
+    stroke-width: 2.5;
+    stroke-linecap: round;
+  }
+
+  .key-name {
+    font-family: var(--font-display);
+    font-size: var(--text-small);
+    font-weight: 500;
+    color: var(--color-text);
+  }
+
+  .key-style,
+  .key-warn {
+    color: var(--color-text-muted);
+  }
+
+  .key-warn {
+    color: var(--color-alert);
+  }
+
+  .honesty {
+    text-transform: none;
+    letter-spacing: 0.02em;
+    color: var(--color-text-muted);
+    max-width: 70ch;
+  }
+</style>
