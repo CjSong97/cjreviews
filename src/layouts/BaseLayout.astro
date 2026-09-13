@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css"
+import { ClientRouter } from "astro:transitions"
 import Analytics from "@vercel/analytics/astro"
 import SiteHeader from "../components/SiteHeader.astro"
 import SiteFooter from "../components/SiteFooter.astro"
@@ -47,6 +48,8 @@ const ogImageUrl = ogImage ? new URL(ogImage, Astro.site ?? Astro.url).href : un
     {description && <meta property="og:description" content={description} />}
     {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
     <meta name="twitter:card" content={ogImageUrl ? "summary_large_image" : "summary"} />
+
+    <ClientRouter />
   </head>
   <body>
     <a href="#main" class="skip">Skip to content</a>
@@ -56,6 +59,35 @@ const ogImageUrl = ogImage ? new URL(ogImage, Astro.site ?? Astro.url).href : un
     </main>
     <SiteFooter />
     <Analytics />
+
+    <script>
+      import {
+        canAnimate,
+        refreshTriggers,
+        startSmoothScroll,
+        stopSmoothScroll,
+      } from "../lib/motion/scroll"
+
+      /*
+       * Smooth scroll and ScrollTrigger are torn down before every navigation
+       * and rebuilt after: triggers left over from the previous page would
+       * otherwise try to pin elements that no longer exist.
+       */
+      const start = () => {
+        if (!canAnimate()) return
+        startSmoothScroll()
+        // Images and fonts settle after hydration, which moves trigger
+        // positions, so recompute once things have landed.
+        requestAnimationFrame(() => refreshTriggers())
+      }
+
+      document.addEventListener("astro:page-load", start)
+      document.addEventListener("astro:before-swap", stopSmoothScroll)
+      window.addEventListener("pageshow", (event) => {
+        // Restored from the back/forward cache: positions need recomputing.
+        if (event.persisted) refreshTriggers()
+      })
+    </script>
   </body>
 </html>
 

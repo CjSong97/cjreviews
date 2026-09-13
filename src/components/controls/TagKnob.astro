@@ -1,0 +1,164 @@
+---
+/**
+ * Rotary tag selector.
+ *
+ * It looks like a knob but it *is* a native <select> inside a real GET form, per
+ * DESIGN.md §7.2 — so arrow keys, type-ahead, screen readers and no-JS
+ * navigation all work for free. JavaScript only removes the need to press Go.
+ */
+interface Props {
+  tags: string[]
+  /** Currently active tag, if we're on a tag page. */
+  selected?: string | null
+}
+
+const { tags, selected = null } = Astro.props
+
+const activeIndex = selected
+  ? tags.findIndex((t) => t.toLowerCase() === selected.toLowerCase())
+  : -1
+
+// Pointer sweeps 270° across the available positions.
+const SWEEP = 270
+const angle =
+  tags.length > 1 && activeIndex >= 0
+    ? -SWEEP / 2 + (activeIndex / (tags.length - 1)) * SWEEP
+    : -SWEEP / 2
+---
+
+{
+  tags.length > 0 && (
+    <form class="knob-form" method="get" action="/tags" data-tag-knob>
+      <div class="dial" style={`--angle: ${angle}deg`}>
+        <span class="pointer" aria-hidden="true"></span>
+        <span class="knurl" aria-hidden="true"></span>
+      </div>
+
+      <div class="field">
+        <label class="label" for="tag-knob">Filter by tag</label>
+        <select id="tag-knob" name="tag" class="select">
+          <option value="">All reviews</option>
+          {tags.map((tag) => (
+            <option value={tag.toLowerCase()} selected={activeIndex >= 0 && tag === tags[activeIndex]}>
+              {tag}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Removed by the enhancement script; the only path without JS. */}
+      <button type="submit" class="go label" data-tag-knob-submit>Go</button>
+    </form>
+  )
+}
+
+<script>
+  // Progressive enhancement: navigate on change and drop the submit button.
+  // Without this the form still works as a plain GET to /tags?tag=…
+  document.querySelectorAll<HTMLFormElement>("[data-tag-knob]").forEach((form) => {
+    const select = form.querySelector<HTMLSelectElement>("select")
+    const submit = form.querySelector<HTMLButtonElement>("[data-tag-knob-submit]")
+    if (!select) return
+
+    submit?.remove()
+
+    select.addEventListener("change", () => {
+      const value = select.value
+      window.location.href = value ? `/tags/${encodeURIComponent(value)}` : "/reviews"
+    })
+  })
+</script>
+
+<style>
+  .knob-form {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+  }
+
+  .dial {
+    position: relative;
+    flex: 0 0 auto;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 50%;
+    background: var(--color-panel);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      inset 0 0 0 1px var(--color-panel-edge);
+    transform: rotate(var(--angle, 0deg));
+    transition: transform var(--duration-base) var(--ease-instrument);
+  }
+
+  /* Knurled edge — the one material on this control (DESIGN.md §4). */
+  .knurl {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: repeating-conic-gradient(
+      var(--color-panel-edge) 0deg 3deg,
+      transparent 3deg 7deg
+    );
+    mask-image: radial-gradient(circle, transparent 66%, black 68%);
+  }
+
+  .pointer {
+    position: absolute;
+    top: 0.3125rem;
+    left: 50%;
+    width: 2px;
+    height: 0.75rem;
+    margin-left: -1px;
+    border-radius: 1px;
+    background: var(--color-signal);
+    box-shadow: 0 0 5px var(--color-signal);
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1875rem;
+  }
+
+  .select {
+    appearance: none;
+    padding: 0.4375rem 2rem 0.4375rem 0.75rem;
+    border: 1px solid var(--color-panel-edge);
+    border-radius: var(--radius-sm);
+    background: var(--color-ground-raised);
+    color: var(--color-text);
+    font-family: var(--font-display);
+    font-size: var(--text-small);
+    font-weight: 500;
+    cursor: pointer;
+    /* Chevron drawn inline so no network request is needed. */
+    background-image: linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%),
+      linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
+    background-position:
+      calc(100% - 1rem) 55%,
+      calc(100% - 0.7rem) 55%;
+    background-size:
+      5px 5px,
+      5px 5px;
+    background-repeat: no-repeat;
+  }
+
+  .select:hover {
+    border-color: var(--color-signal);
+  }
+
+  .go {
+    padding: 0.4375rem 0.75rem;
+    border: 1px solid var(--color-panel-edge);
+    border-radius: var(--radius-sm);
+    background: var(--color-panel);
+    color: var(--color-text);
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dial {
+      transition: none;
+    }
+  }
+</style>

@@ -1,9 +1,10 @@
 ---
-import { getPublishedPosts } from "../../lib/notion/adapter"
+import { getAllTags, getPublishedPosts } from "../../lib/notion/adapter"
 import BaseLayout from "../../layouts/BaseLayout.astro"
 import RackGrid from "../../components/rack/RackGrid.astro"
+import TagKnob from "../../components/controls/TagKnob.astro"
 
-const posts = await getPublishedPosts()
+const [posts, tags] = await Promise.all([getPublishedPosts(), getAllTags()])
 ---
 
 <BaseLayout
@@ -20,6 +21,10 @@ const posts = await getPublishedPosts()
       </p>
     </header>
 
+    <div class="controls">
+      <TagKnob tags={tags} />
+    </div>
+
     <RackGrid posts={posts} eagerCount={3} headingLevel={2} />
   </div>
 </BaseLayout>
@@ -30,7 +35,13 @@ const posts = await getPublishedPosts()
   }
 
   .head {
+    margin-bottom: 1.5rem;
+  }
+
+  .controls {
     margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-panel-edge);
   }
 
   .title {

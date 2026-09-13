@@ -1,7 +1,7 @@
 ---
 import type { ReviewPost } from "../../lib/cms/types"
 import ProxyImage from "../media/ProxyImage.astro"
-import RatingBadge from "../instrument/RatingBadge.astro"
+import VuRating from "../instrument/VuRating.svelte"
 import PriceDisplay from "../instrument/PriceDisplay.astro"
 import TagPill from "../controls/TagPill.astro"
 
@@ -18,7 +18,7 @@ const published = post.publishedAt ? new Date(post.publishedAt) : null
 <header class="hero">
   {
     post.coverImage && (
-      <div class="frame bezel">
+      <div class="frame bezel" transition:name={`cover-${post.slug}`}>
         <ProxyImage
           src={post.coverImage}
           alt={`Cover image for ${post.title}`}
@@ -38,7 +38,8 @@ const published = post.publishedAt ? new Date(post.publishedAt) : null
     {post.description && <p class="standfirst">{post.description}</p>}
 
     <div class="readout">
-      {post.rating !== null && <RatingBadge rating={post.rating} size="lg" />}
+      {/* The only hydrated island on this page. */}
+      {post.rating !== null && <VuRating rating={post.rating} client:visible />}
       {post.price !== null && <PriceDisplay price={post.price} size="lg" />}
       {
         published && (

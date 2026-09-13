@@ -8,7 +8,7 @@ const navLinks = [
 const currentPath = Astro.url.pathname
 ---
 
-<header class="site-header">
+<header class="site-header" transition:persist="site-header">
   <nav class="nav-inner shell" aria-label="Main navigation">
     <a href="/" class="logo" aria-label="CJ Reviews home">
       <span class="led" aria-hidden="true"></span>
@@ -44,13 +44,44 @@ const currentPath = Astro.url.pathname
 </header>
 
 <script>
-  const toggle = document.querySelector(".nav-toggle") as HTMLButtonElement | null
-  const menu = document.getElementById("nav-menu")
+  /*
+   * The header is persisted across view transitions, so its DOM survives
+   * navigation. That means two things: bind the toggle only once, and resync
+   * anything path-dependent by hand — a persisted header would otherwise keep
+   * the previous page's active link highlighted forever.
+   */
+  function bindToggle() {
+    const toggle = document.querySelector<HTMLButtonElement>(".nav-toggle")
+    const menu = document.getElementById("nav-menu")
+    if (!toggle || toggle.dataset.bound === "true") return
 
-  toggle?.addEventListener("click", () => {
-    const expanded = toggle.getAttribute("aria-expanded") === "true"
-    toggle.setAttribute("aria-expanded", String(!expanded))
-    menu?.classList.toggle("open")
+    toggle.dataset.bound = "true"
+    toggle.addEventListener("click", () => {
+      const expanded = toggle.getAttribute("aria-expanded") === "true"
+      toggle.setAttribute("aria-expanded", String(!expanded))
+      menu?.classList.toggle("open")
+    })
+  }
+
+  function syncNav() {
+    const path = window.location.pathname
+
+    document.querySelectorAll<HTMLAnchorElement>(".nav-link").forEach((link) => {
+      const href = link.getAttribute("href") ?? ""
+      link.classList.toggle("active", href !== "/" && path.startsWith(href))
+    })
+
+    // An open mobile menu must not survive a navigation.
+    const toggle = document.querySelector<HTMLButtonElement>(".nav-toggle")
+    toggle?.setAttribute("aria-expanded", "false")
+    document.getElementById("nav-menu")?.classList.remove("open")
+  }
+
+  bindToggle()
+  syncNav()
+  document.addEventListener("astro:page-load", () => {
+    bindToggle()
+    syncNav()
   })
 </script>
 

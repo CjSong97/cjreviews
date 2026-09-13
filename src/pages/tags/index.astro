@@ -1,6 +1,16 @@
 ---
-import { getAllTags, getPublishedPosts } from "../../lib/notion/adapter"
+import { getAllTags, getCanonicalTagName, getPublishedPosts } from "../../lib/notion/adapter"
 import BaseLayout from "../../layouts/BaseLayout.astro"
+
+/*
+ * TagKnob's no-JS path is a plain GET to /tags?tag=<slug>. Honour it here by
+ * redirecting to the tag page, so the control works before JavaScript loads.
+ */
+const requested = Astro.url.searchParams.get("tag")
+if (requested) {
+  const canonical = await getCanonicalTagName(requested)
+  return Astro.redirect(canonical ? `/tags/${encodeURIComponent(canonical.toLowerCase())}` : "/tags", 303)
+}
 
 const [tags, posts] = await Promise.all([getAllTags(), getPublishedPosts()])
 

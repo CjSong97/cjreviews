@@ -1,7 +1,8 @@
 ---
-import { getPostsByTag, getCanonicalTagName } from "../../lib/notion/adapter"
+import { getAllTags, getCanonicalTagName, getPostsByTag } from "../../lib/notion/adapter"
 import BaseLayout from "../../layouts/BaseLayout.astro"
 import RackGrid from "../../components/rack/RackGrid.astro"
+import TagKnob from "../../components/controls/TagKnob.astro"
 
 const { tag } = Astro.params
 
@@ -10,7 +11,7 @@ if (!canonical) {
   return new Response(null, { status: 404, statusText: "Tag not found" })
 }
 
-const posts = await getPostsByTag(canonical)
+const [posts, tags] = await Promise.all([getPostsByTag(canonical), getAllTags()])
 const count = posts.length
 ---
 
@@ -28,6 +29,10 @@ const count = posts.length
       </p>
     </header>
 
+    <div class="controls">
+      <TagKnob tags={tags} selected={canonical} />
+    </div>
+
     <RackGrid posts={posts} eagerCount={3} headingLevel={2} />
   </div>
 </BaseLayout>
@@ -38,7 +43,13 @@ const count = posts.length
   }
 
   .head {
+    margin-bottom: 1.5rem;
+  }
+
+  .controls {
     margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-panel-edge);
   }
 
   .title {

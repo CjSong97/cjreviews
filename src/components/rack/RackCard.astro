@@ -38,7 +38,7 @@ const hasReadout = post.rating !== null || post.price !== null
 
 <article class:list={["card", "bezel", { console: isGame }]}>
   <a href={`/reviews/${post.slug}`} class="hit">
-    <div class="frame">
+    <div class="frame" transition:name={`cover-${post.slug}`}>
       {
         post.coverImage ? (
           <ProxyImage
