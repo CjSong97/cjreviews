@@ -1,0 +1,89 @@
+---
+import { getAllTags, getPublishedPosts } from "../../lib/notion/adapter"
+import BaseLayout from "../../layouts/BaseLayout.astro"
+
+const [tags, posts] = await Promise.all([getAllTags(), getPublishedPosts()])
+
+// Count once here rather than querying per tag.
+const counts = new Map<string, number>()
+for (const post of posts) {
+  for (const tag of post.tags) {
+    counts.set(tag, (counts.get(tag) ?? 0) + 1)
+  }
+}
+---
+
+<BaseLayout
+  title="Tags"
+  description="Browse CJ Reviews by tag."
+  canonicalUrl={Astro.url.href}
+>
+  <div class="shell page">
+    <header class="head">
+      <p class="label">Index</p>
+      <h1 class="title">Tags</h1>
+    </header>
+
+    <ul class="tag-list" role="list">
+      {
+        tags.map((tag) => (
+          <li>
+            <a href={`/tags/${encodeURIComponent(tag.toLowerCase())}`} class="tag bezel">
+              <span class="name">{tag}</span>
+              <span class="numeral n">{counts.get(tag) ?? 0}</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</BaseLayout>
+
+<style>
+  .page {
+    padding-block: 2.5rem 4rem;
+  }
+
+  .head {
+    margin-bottom: 2rem;
+  }
+
+  .title {
+    font-size: var(--text-h1);
+    color: var(--color-text);
+    margin-top: 0.25rem;
+  }
+
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.625rem;
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.875rem;
+    border-radius: var(--radius);
+    background: var(--color-panel);
+    color: var(--color-text);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--ease-instrument);
+  }
+
+  .tag:hover,
+  .tag:focus-visible {
+    color: var(--color-signal);
+  }
+
+  .name {
+    font-family: var(--font-display);
+    font-weight: 500;
+  }
+
+  .n {
+    font-size: var(--text-label);
+    color: var(--color-text-faint);
+  }
+</style>

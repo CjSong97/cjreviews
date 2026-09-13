@@ -1,0 +1,49 @@
+---
+import { proxySrcset, proxyVariant } from "../../lib/notion/images"
+
+/**
+ * Renders a Notion-backed image with a responsive WebP srcset.
+ *
+ * Proxied images get resized variants; external URLs fall back to a plain src,
+ * since only our own proxy can resize. Either way this is a plain server-rendered
+ * <img> — no hydration, so crawlers see it (DESIGN.md §9).
+ */
+interface Props {
+  src: string
+  alt: string
+  width: number
+  height: number
+  /** `sizes` attribute; describes the slot so the browser picks a variant. */
+  sizes?: string
+  /** Above-the-fold images should be eager + high priority. */
+  eager?: boolean
+  class?: string
+}
+
+const {
+  src,
+  alt,
+  width,
+  height,
+  sizes = "(max-width: 640px) 100vw, 33vw",
+  eager = false,
+  class: className,
+} = Astro.props
+
+const srcset = proxySrcset(src)
+// Fall back width for browsers ignoring srcset; matches the largest common slot.
+const fallback = proxyVariant(src, 960) ?? src
+---
+
+<img
+  src={fallback}
+  srcset={srcset ?? undefined}
+  sizes={srcset ? sizes : undefined}
+  alt={alt}
+  width={width}
+  height={height}
+  loading={eager ? "eager" : "lazy"}
+  decoding={eager ? "sync" : "async"}
+  fetchpriority={eager ? "high" : undefined}
+  class={className}
+/>

@@ -1,9 +1,11 @@
 ---
 import { getPostBySlug, getPostBlocks, getRelatedPosts } from "../../lib/notion/adapter"
 import BaseLayout from "../../layouts/BaseLayout.astro"
-import ReviewHero from "../../components/ReviewHero.svelte"
-import NotionRenderer from "../../components/NotionRenderer.svelte"
-import RelatedPosts from "../../components/RelatedPosts.svelte"
+import ReviewHero from "../../components/review/ReviewHero.astro"
+import SpecPanel from "../../components/instrument/SpecPanel.astro"
+import ArticleBody from "../../components/article/ArticleBody.astro"
+import NotionRenderer from "../../components/article/NotionRenderer.astro"
+import RelatedPosts from "../../components/rack/RelatedPosts.astro"
 
 const { slug } = Astro.params
 const post = slug ? await getPostBySlug(slug) : null
@@ -27,29 +29,23 @@ const seoDesc = post.seoDescription ?? post.description ?? ""
   ogImage={post.coverImage ?? undefined}
   canonicalUrl={Astro.url.href}
 >
-  <div class="page-wrap">
-    <ReviewHero {post} client:load />
+  <div class="shell page">
+    <ReviewHero post={post} />
 
-    <article class="article-body">
-      <NotionRenderer {blocks} client:load />
+    <article>
+      <ArticleBody>
+        <NotionRenderer blocks={blocks} />
+      </ArticleBody>
     </article>
 
-    <RelatedPosts posts={related} client:load />
+    <SpecPanel post={post} />
+
+    <RelatedPosts posts={related} />
   </div>
 </BaseLayout>
 
 <style>
-  .page-wrap {
-    max-width: 80rem;
-    margin: 0 auto;
-    padding: 2rem 1.25rem 4rem;
-  }
-
-  .article-body {
-    max-width: 72ch;
-    margin: 0 auto;
-    font-size: 1.0625rem;
-    line-height: 1.75;
-    color: var(--color-text, #111827);
+  .page {
+    padding-block: 2rem 4rem;
   }
 </style>

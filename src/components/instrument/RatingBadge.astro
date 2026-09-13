@@ -1,0 +1,94 @@
+---
+/**
+ * Rating as a meter readout: the numeral plus a segmented scale.
+ *
+ * Phase 2 replaces the segments with an animated VU needle. The numeral stays
+ * in the DOM as text either way, so the rating is never conveyed by needle
+ * position or colour alone (DESIGN.md §3.4).
+ */
+interface Props {
+  rating: number
+  /** "sm" for cards, "lg" for the review hero. */
+  size?: "sm" | "lg"
+}
+
+const { rating, size = "sm" } = Astro.props
+
+const clamped = Math.max(0, Math.min(100, rating))
+const tier = clamped >= 80 ? "high" : clamped >= 60 ? "mid" : "low"
+
+// 10 segments; a partially covered segment counts as lit.
+const SEGMENTS = 10
+const lit = Math.ceil((clamped / 100) * SEGMENTS)
+---
+
+<div class:list={["meter", size, tier]} data-tier={tier}>
+  <span class="numeral value">{clamped}</span>
+  <span class="scale" aria-hidden="true">
+    {
+      Array.from({ length: SEGMENTS }, (_, i) => (
+        <span class:list={["seg", { on: i < lit }]}></span>
+      ))
+    }
+  </span>
+  <span class="visually-hidden">out of 100</span>
+</div>
+
+<style>
+  .meter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .value {
+    font-weight: 500;
+    line-height: 1;
+    color: var(--color-text);
+    letter-spacing: -0.02em;
+  }
+
+  .sm .value {
+    font-size: 1.125rem;
+  }
+
+  .lg .value {
+    font-size: 2rem;
+  }
+
+  .scale {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+  }
+
+  .seg {
+    display: block;
+    width: 3px;
+    background: var(--color-panel-edge);
+    border-radius: 1px;
+    transition: background var(--duration-fast) var(--ease-instrument);
+  }
+
+  .sm .seg {
+    height: 10px;
+  }
+
+  .lg .seg {
+    height: 16px;
+    width: 4px;
+  }
+
+  /* Tier is reinforced by how many segments are lit, not by colour alone. */
+  .high .seg.on {
+    background: var(--color-phosphor);
+  }
+
+  .mid .seg.on {
+    background: var(--color-signal);
+  }
+
+  .low .seg.on {
+    background: var(--color-alert);
+  }
+</style>

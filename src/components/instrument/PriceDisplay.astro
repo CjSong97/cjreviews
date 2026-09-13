@@ -1,0 +1,44 @@
+---
+/** Price as an instrument readout: mono, tabular, with a screen-printed unit. */
+interface Props {
+  price: number
+  size?: "sm" | "lg"
+}
+
+const { price, size = "sm" } = Astro.props
+
+// Whole pounds read cleaner on a card; pence matter when they exist.
+const amount = Number.isInteger(price) ? String(price) : price.toFixed(2)
+---
+
+<span class:list={["price", size]}>
+  <span class="unit" aria-hidden="true">£</span><span class="numeral amount">{amount}</span>
+  <span class="visually-hidden">{amount} pounds</span>
+</span>
+
+<style>
+  .price {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.0625rem;
+    color: var(--color-text-muted);
+  }
+
+  .unit {
+    font-family: var(--font-mono);
+    color: var(--color-text-faint);
+  }
+
+  .amount {
+    font-weight: 500;
+  }
+
+  .sm {
+    font-size: var(--text-small);
+  }
+
+  .lg {
+    font-size: 1.125rem;
+    color: var(--color-text);
+  }
+</style>

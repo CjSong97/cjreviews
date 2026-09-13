@@ -3,13 +3,16 @@ const year = new Date().getFullYear()
 ---
 
 <footer class="site-footer">
-  <div class="footer-inner">
-    <p class="copyright">© {year} CJ Reviews</p>
+  <div class="footer-inner shell">
+    <p class="label copyright">
+      <span aria-hidden="true">© </span><span class="numeral">{year}</span> CJ Reviews
+    </p>
     <nav aria-label="Footer navigation">
       <ul class="footer-links" role="list">
-        <li><a href="/reviews">Reviews</a></li>
-        <li><a href="/about">About</a></li>
-        <li><a href="/rss.xml">RSS</a></li>
+        <li><a href="/reviews" class="label">Reviews</a></li>
+        <li><a href="/tags" class="label">Tags</a></li>
+        <li><a href="/about" class="label">About</a></li>
+        <li><a href="/rss.xml" class="label">RSS</a></li>
       </ul>
     </nav>
   </div>
@@ -18,8 +21,8 @@ const year = new Date().getFullYear()
 <style>
   .site-footer {
     margin-top: auto;
-    border-top: 1px solid var(--color-border, #e5e7eb);
-    padding: 1.5rem 0;
+    border-top: 1px solid var(--color-panel-edge);
+    padding-block: 1.5rem;
   }
 
   .footer-inner {
@@ -28,29 +31,26 @@ const year = new Date().getFullYear()
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 0.75rem;
-    max-width: 80rem;
-    margin: 0 auto;
-    padding: 0 1.25rem;
   }
 
   .copyright {
-    font-size: 0.875rem;
-    color: var(--color-text-subtle, #9ca3af);
+    color: var(--color-text-faint);
   }
 
   .footer-links {
     display: flex;
+    flex-wrap: wrap;
     gap: 1rem;
     list-style: none;
   }
 
   .footer-links a {
-    font-size: 0.875rem;
-    color: var(--color-text-muted, #6b7280);
     text-decoration: none;
+    transition: color var(--duration-fast) var(--ease-instrument);
   }
 
-  .footer-links a:hover {
-    color: var(--color-text, #111827);
+  .footer-links a:hover,
+  .footer-links a:focus-visible {
+    color: var(--color-signal);
   }
 </style>

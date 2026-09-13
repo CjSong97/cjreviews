@@ -1,0 +1,35 @@
+---
+import type { ReviewPost } from "../../lib/cms/types"
+import RackCard from "./RackCard.astro"
+
+/**
+ * The gallery: reviews as units in a rack. Used by the homepage, the reviews
+ * index, tag pages, and related posts, so a card never changes shape by context
+ * (DESIGN.md §5.3).
+ */
+interface Props {
+  posts: ReviewPost[]
+  /** Number of leading cards to load eagerly (above the fold). */
+  eagerCount?: number
+  /** Slightly wider columns, for a short featured row. */
+  wide?: boolean
+}
+
+const { posts, eagerCount = 0, wide = false } = Astro.props
+---
+
+<div class:list={["grid", { wide }]}>
+  {posts.map((post, i) => <RackCard post={post} eager={i < eagerCount} />)}
+</div>
+
+<style>
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: 1.25rem;
+  }
+
+  .wide {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
+  }
+</style>

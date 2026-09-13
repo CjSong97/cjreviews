@@ -1,18 +1,26 @@
 import type { APIRoute } from "astro"
 import type { PageObjectResponse } from "@notionhq/client/build/src/api-endpoints"
+import sharp from "sharp"
 import { getNotionClient } from "../../../../lib/notion/client"
 import {
+  ALLOWED_WIDTHS,
   resolveBlockImageSource,
   resolvePageCoverSource,
   type ImageSource,
 } from "../../../../lib/notion/images"
 
 /**
- * Streams a Notion-hosted image through a stable URL.
+ * Streams a Notion-hosted image through a stable URL, optionally resized.
  *
  * Notion's own file URLs are signed and expire after an hour, so they cannot be
  * embedded in a page. This route takes the page/block id instead, asks Notion
  * for a freshly signed URL at request time, and returns the bytes.
+ *
+ * Resizing happens here rather than through Astro's <Image> or Vercel's Image
+ * Optimization: we already own this route and its year-long immutable cache, so
+ * doing the work inline costs no external quota and behaves identically in dev.
+ * Source images are phone-camera originals — one cover is 3000x4000 at 2.3MB —
+ * so serving them unresized at card size is the single biggest waste on the site.
  *
  * The response is cached immutably at the edge because callers version the URL
  * with `?v=<last_edited_time>` — see proxiedImageUrl().
@@ -66,7 +74,18 @@ async function sourceFor(kind: string, id: string): Promise<ImageSource | null> 
   return resolveBlockImageSource(block)
 }
 
-export const GET: APIRoute = async ({ params }) => {
+/**
+ * Widths are restricted to a fixed set so the number of cacheable variants
+ * stays bounded — an open `w` parameter would let anyone mint unlimited
+ * transformations against this function.
+ */
+function requestedWidth(raw: string | null): number | null {
+  if (!raw) return null
+  const w = Number(raw)
+  return ALLOWED_WIDTHS.includes(w) ? w : null
+}
+
+export const GET: APIRoute = async ({ params, url }) => {
   const { kind, id } = params
 
   if (kind !== "page" && kind !== "block") return fail(404, "Unknown image kind")
@@ -86,11 +105,54 @@ export const GET: APIRoute = async ({ params }) => {
     return fail(502, `Upstream image fetch failed (${upstream.status})`)
   }
 
-  return new Response(upstream.body, {
-    status: 200,
-    headers: {
-      "Content-Type": contentTypeFor(upstream.headers.get("content-type"), source.url),
-      "Cache-Control": IMMUTABLE,
-    },
-  })
+  const width = requestedWidth(url.searchParams.get("w"))
+  const wantsWebp = url.searchParams.get("f") === "webp"
+
+  // No transform requested: stream the original through untouched.
+  if (width === null && !wantsWebp) {
+    return new Response(upstream.body, {
+      status: 200,
+      headers: {
+        "Content-Type": contentTypeFor(upstream.headers.get("content-type"), source.url),
+        "Cache-Control": IMMUTABLE,
+      },
+    })
+  }
+
+  try {
+    const input = Buffer.from(await upstream.arrayBuffer())
+    let pipeline = sharp(input).rotate() // honour EXIF orientation
+
+    if (width !== null) {
+      // withoutEnlargement: never upscale a source smaller than the slot.
+      pipeline = pipeline.resize({ width, withoutEnlargement: true })
+    }
+
+    const output = wantsWebp
+      ? await pipeline.webp({ quality: 80 }).toBuffer()
+      : await pipeline.toBuffer()
+
+    return new Response(new Uint8Array(output), {
+      status: 200,
+      headers: {
+        "Content-Type": wantsWebp
+          ? "image/webp"
+          : contentTypeFor(upstream.headers.get("content-type"), source.url),
+        "Cache-Control": IMMUTABLE,
+      },
+    })
+  } catch {
+    // A malformed or unsupported source (e.g. an SVG) still deserves to render,
+    // so fall back to the original bytes rather than failing the image.
+    const retry = await fetch(source.url)
+    if (!retry.ok || !retry.body) return fail(502, "Image transform and refetch both failed")
+
+    return new Response(retry.body, {
+      status: 200,
+      headers: {
+        "Content-Type": contentTypeFor(retry.headers.get("content-type"), source.url),
+        "Cache-Control": IMMUTABLE,
+      },
+    })
+  }
 }

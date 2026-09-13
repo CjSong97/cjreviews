@@ -17,6 +17,12 @@ export type ImageSource = {
 }
 
 /**
+ * Widths the proxy will resize to. Fixed rather than open-ended so the set of
+ * cacheable variants is bounded and nobody can mint unlimited transformations.
+ */
+export const ALLOWED_WIDTHS = [320, 480, 640, 960, 1280, 1600] as const
+
+/**
  * The proxy URL is versioned with the source object's `last_edited_time` so it
  * can be cached immutably: editing a page in Notion changes the timestamp,
  * which changes the cache key, so a swapped image appears immediately while an
@@ -48,6 +54,34 @@ export function toPublicImageUrl(
   if (!source) return null
   if (source.type === "external") return source.url
   return proxiedImageUrl(kind, id, lastEditedTime)
+}
+
+/**
+ * Builds a WebP `srcset` for an image already served by our proxy.
+ *
+ * Returns null for anything else — an external URL has no resizing endpoint, so
+ * callers fall back to a plain `src`.
+ */
+export function proxySrcset(url: string | null): string | null {
+  if (!url || !url.startsWith("/api/img/")) return null
+
+  return ALLOWED_WIDTHS.map((w) => `${withParams(url, { w: String(w), f: "webp" })} ${w}w`).join(
+    ", "
+  )
+}
+
+/** Returns a single resized WebP variant, or the URL unchanged if not proxied. */
+export function proxyVariant(url: string | null, width: number): string | null {
+  if (!url) return null
+  if (!url.startsWith("/api/img/")) return url
+  return withParams(url, { w: String(width), f: "webp" })
+}
+
+function withParams(url: string, params: Record<string, string>): string {
+  const [path, query = ""] = url.split("?")
+  const search = new URLSearchParams(query)
+  for (const [key, value] of Object.entries(params)) search.set(key, value)
+  return `${path}?${search.toString()}`
 }
 
 /**

@@ -1,0 +1,281 @@
+---
+import ProxyImage from "../media/ProxyImage.astro"
+
+/**
+ * Renders Notion blocks as HTML.
+ *
+ * Converted from Svelte to Astro: this is pure rendering with no interactivity,
+ * and as a `client:load` island it was serialising every review's full body into
+ * the page a second time (DESIGN.md §9).
+ *
+ * `any` is used throughout for untyped Notion block payloads, per
+ * agent-os/product/code-style.md.
+ */
+interface Props {
+  blocks: any[]
+}
+
+const { blocks } = Astro.props
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+}
+
+/**
+ * Notion rich text → HTML. Content is author-controlled, so this is injected
+ * directly; escaping still runs so stray angle brackets in prose survive.
+ * Do not feed user-submitted content through here without sanitization
+ * (agent-os/product/decisions.md).
+ */
+function renderRichText(rt: any[] | undefined): string {
+  if (!rt) return ""
+
+  return rt
+    .map((r: any) => {
+      let text = escapeHtml(r.plain_text)
+      const a = r.annotations ?? {}
+      if (a.code) text = `<code>${text}</code>`
+      if (a.bold) text = `<strong>${text}</strong>`
+      if (a.italic) text = `<em>${text}</em>`
+      if (a.strikethrough) text = `<s>${text}</s>`
+      if (a.underline) text = `<u>${text}</u>`
+      if (r.href) {
+        const href = escapeHtml(r.href)
+        const external = /^https?:\/\//.test(r.href)
+        const attrs = external ? ' target="_blank" rel="noopener noreferrer"' : ""
+        text = `<a href="${href}"${attrs}>${text}</a>`
+      }
+      return text
+    })
+    .join("")
+}
+
+function plainText(rt: any[] | undefined): string {
+  return (rt ?? []).map((r: any) => r.plain_text).join("")
+}
+
+type Group =
+  | { type: "ul"; items: any[] }
+  | { type: "ol"; items: any[] }
+  | { type: "block"; block: any }
+
+/** Groups consecutive list items so they render as one list, not many. */
+function groupBlocks(input: any[]): Group[] {
+  const result: Group[] = []
+
+  for (const block of input) {
+    const listType =
+      block.type === "bulleted_list_item" ? "ul" : block.type === "numbered_list_item" ? "ol" : null
+
+    if (listType) {
+      const last = result[result.length - 1]
+      if (last?.type === listType) {
+        last.items.push(block)
+      } else {
+        result.push({ type: listType, items: [block] })
+      }
+    } else {
+      result.push({ type: "block", block })
+    }
+  }
+
+  return result
+}
+
+const groups = groupBlocks(blocks ?? [])
+
+/** Notion image blocks arrive pre-rewritten to the proxy URL by the adapter. */
+function imageUrl(block: any): string | null {
+  const image = block.image
+  if (image?.type === "external") return image.external?.url ?? null
+  if (image?.type === "file") return image.file?.url ?? null
+  return null
+}
+---
+
+{
+  groups.map((group) => {
+    if (group.type === "ul") {
+      return (
+        <ul>
+          {group.items.map((item) => (
+            <li set:html={renderRichText(item.bulleted_list_item.rich_text)} />
+          ))}
+        </ul>
+      )
+    }
+
+    if (group.type === "ol") {
+      return (
+        <ol>
+          {group.items.map((item) => (
+            <li set:html={renderRichText(item.numbered_list_item.rich_text)} />
+          ))}
+        </ol>
+      )
+    }
+
+    const block = group.block
+
+    switch (block.type) {
+      case "paragraph":
+        return <p set:html={renderRichText(block.paragraph.rich_text)} />
+      case "heading_1":
+        return <h2 set:html={renderRichText(block.heading_1.rich_text)} />
+      case "heading_2":
+        return <h3 set:html={renderRichText(block.heading_2.rich_text)} />
+      case "heading_3":
+        return <h4 set:html={renderRichText(block.heading_3.rich_text)} />
+      case "quote":
+        return <blockquote set:html={renderRichText(block.quote.rich_text)} />
+      case "divider":
+        return <hr />
+      case "code":
+        return (
+          <pre>
+            <code>{plainText(block.code.rich_text)}</code>
+          </pre>
+        )
+      case "callout":
+        return (
+          <aside class="callout bezel">
+            {block.callout.icon?.emoji && (
+              <span class="callout-icon" aria-hidden="true">
+                {block.callout.icon.emoji}
+              </span>
+            )}
+            <div set:html={renderRichText(block.callout.rich_text)} />
+          </aside>
+        )
+      case "image": {
+        const src = imageUrl(block)
+        if (!src) return null
+        const caption = plainText(block.image.caption)
+        return (
+          <figure>
+            <ProxyImage
+              src={src}
+              alt={caption || "Photograph from this review"}
+              width={1280}
+              height={720}
+              sizes="(max-width: 768px) 100vw, 68ch"
+            />
+            {caption && <figcaption set:html={renderRichText(block.image.caption)} />}
+          </figure>
+        )
+      }
+      default:
+        return null
+    }
+  })
+}
+
+<style>
+  /*
+   * `:global` is required because Notion content is injected via set:html, so
+   * Astro's scoping hashes never reach these elements.
+   */
+  :global(.article-body > * + *) {
+    margin-top: 1.125rem;
+  }
+
+  :global(.article-body h2) {
+    font-size: var(--text-h2);
+    margin-top: 2.5rem;
+  }
+
+  :global(.article-body h3) {
+    font-size: var(--text-h3);
+    margin-top: 2rem;
+  }
+
+  :global(.article-body h4) {
+    font-size: 1.125rem;
+    margin-top: 1.5rem;
+  }
+
+  :global(.article-body a) {
+    color: var(--color-signal);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  :global(.article-body ul),
+  :global(.article-body ol) {
+    padding-left: 1.5rem;
+  }
+
+  :global(.article-body li + li) {
+    margin-top: 0.375rem;
+  }
+
+  :global(.article-body code) {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    padding: 0.1em 0.35em;
+    border-radius: var(--radius-sm);
+    background: var(--color-ground-raised);
+    border: 1px solid var(--color-panel-edge);
+  }
+
+  :global(.article-body pre) {
+    background: #0b0e0f;
+    color: #e8edef;
+    padding: 1rem;
+    border-radius: var(--radius);
+    overflow-x: auto;
+    border: 1px solid var(--color-panel-edge);
+  }
+
+  :global(.article-body pre code) {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  :global(.article-body blockquote) {
+    border-left: 2px solid var(--color-signal);
+    padding-left: 1rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  :global(.article-body hr) {
+    border: 0;
+    border-top: 1px solid var(--color-panel-edge);
+    margin: 2.5rem 0;
+  }
+
+  :global(.article-body figure) {
+    margin: 2rem 0;
+  }
+
+  :global(.article-body figure img) {
+    width: 100%;
+    border-radius: var(--radius);
+    border: 1px solid var(--color-panel-edge);
+  }
+
+  :global(.article-body figcaption) {
+    margin-top: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    letter-spacing: 0.04em;
+    color: var(--color-text-faint);
+    text-align: center;
+  }
+
+  :global(.article-body .callout) {
+    display: flex;
+    gap: 0.75rem;
+    padding: 1rem 1.125rem;
+    background: var(--color-panel);
+    border-radius: var(--radius);
+    margin: 1.75rem 0;
+  }
+
+  :global(.article-body .callout-icon) {
+    flex-shrink: 0;
+    line-height: 1.6;
+  }
+</style>

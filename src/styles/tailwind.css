@@ -1,68 +1,129 @@
 @import "tailwindcss";
 
+/*
+ * Signal Path design tokens — the single token system for this project.
+ * See DESIGN.md. Do not add a parallel tokens.css.
+ *
+ * Palette tokens use Tailwind v4's `--color-*` namespace rather than a `--sp-*`
+ * prefix, because only recognised namespaces generate utilities (`bg-panel`,
+ * `text-signal`). One name per token, usable from both utilities and scoped
+ * <style> blocks.
+ *
+ * Dark is declared on bare `:root` because dark is the site's default identity
+ * (DESIGN.md §3.1); light is applied when the reader's OS explicitly asks for it.
+ */
+
 @theme {
-  /* Typography */
+  /* ── Typography ─────────────────────────────────────────────────────────── */
+  --font-display: "Space Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  --font-serif: Fraunces, ui-serif, Georgia, "Times New Roman", Times, serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  /* Type scale */
-  --text-xs: 0.75rem;
-  --text-xs--line-height: 1.5;
-  --text-sm: 0.875rem;
-  --text-sm--line-height: 1.5;
-  --text-base: 1rem;
-  --text-base--line-height: 1.75;
+  /* ── Type scale ─────────────────────────────────────────────────────────── */
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.4;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.5;
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.7;
   --text-article: 1.125rem;
   --text-article--line-height: 1.75;
-  --text-lg: 1.25rem;
-  --text-lg--line-height: 1.65;
-  --text-xl: 1.5rem;
-  --text-xl--line-height: 1.5;
-  --text-2xl: 1.75rem;
-  --text-2xl--line-height: 1.35;
-  --text-3xl: 2.25rem;
-  --text-3xl--line-height: 1.2;
-  --text-4xl: 3rem;
-  --text-4xl--line-height: 1.1;
+  --text-h3: 1.375rem;
+  --text-h3--line-height: 1.35;
+  --text-h2: clamp(1.5rem, 3vw, 2rem);
+  --text-h2--line-height: 1.25;
+  --text-h1: clamp(2rem, 4.5vw, 3.25rem);
+  --text-h1--line-height: 1.12;
+  --text-hero: clamp(2.5rem, 7vw, 5rem);
+  --text-hero--line-height: 1.02;
 
-  /* Layout */
-  --max-w-content: 72ch;
+  /* ── Layout ─────────────────────────────────────────────────────────────── */
+  --max-w-content: 68ch;
+  --max-w-shell: 80rem;
 
-  /* Border radius */
-  --radius: 14px;
-  --radius-sm: 6px;
-  --radius-lg: 20px;
+  /* ── Radii ──────────────────────────────────────────────────────────────── */
+  --radius-sm: 4px;
+  --radius: 10px;
+  --radius-lg: 16px;
 
-  /* Motion */
-  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --duration-fast: 150ms;
-  --duration-standard: 240ms;
+  /* ── Motion ─────────────────────────────────────────────────────────────── */
+  --ease-instrument: cubic-bezier(0.2, 0.9, 0.1, 1);
+  --duration-fast: 140ms;
+  --duration-base: 240ms;
+  --duration-slow: 480ms;
+  --duration-morph: 900ms;
 
-  /* Light theme colors */
-  --color-bg: #ffffff;
-  --color-bg-subtle: #f9fafb;
-  --color-surface: #f3f4f6;
-  --color-border: #e5e7eb;
-  --color-border-subtle: #f3f4f6;
-  --color-text: #111827;
-  --color-text-muted: #6b7280;
-  --color-text-subtle: #9ca3af;
-  --color-accent: #2563eb;
-  --color-accent-hover: #1d4ed8;
+  /* ── Palette: dark (default identity) ───────────────────────────────────── */
+  --color-ground: #0b0e0f;
+  --color-ground-raised: #12171a;
+  --color-panel: #1a1f22;
+  --color-panel-edge: #2a3237;
+  --color-signal: #ffb627;
+  --color-signal-dim: #8a6216;
+  --color-phosphor: #3ddc91;
+  --color-magenta: #ff4fd8;
+  --color-alert: #ff5a5f;
+  --color-text: #e8edef;
+  --color-text-muted: #8a9498;
+  --color-text-faint: #5a6469;
+
+  /* Ink used on top of a saturated accent fill. */
+  --color-on-signal: #1a1206;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #0f172a;
-    --color-bg-subtle: #1e293b;
-    --color-surface: #1e293b;
-    --color-border: #334155;
-    --color-border-subtle: #1e293b;
-    --color-text: #f1f5f9;
-    --color-text-muted: #94a3b8;
-    --color-text-subtle: #64748b;
-    --color-accent: #60a5fa;
-    --color-accent-hover: #93c5fd;
+/*
+ * Light theme. Applied when the OS asks for light, or when an explicit
+ * [data-theme="light"] is set, so a future toggle can win in both directions.
+ * Amber darkens to #9a6200 — #ffb627 fails contrast on warm paper (DESIGN.md §3.3).
+ */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --color-ground: #f7f5f1;
+    --color-ground-raised: #fffefb;
+    --color-panel: #ffffff;
+    --color-panel-edge: #ded9d0;
+    --color-signal: #9a6200;
+    --color-signal-dim: #c9a877;
+    --color-phosphor: #0f7a4a;
+    --color-magenta: #a3128a;
+    --color-alert: #b3272b;
+    --color-text: #14181a;
+    --color-text-muted: #5a6469;
+    --color-text-faint: #8a9498;
+    --color-on-signal: #fffefb;
   }
+}
+
+:root[data-theme="light"] {
+  --color-ground: #f7f5f1;
+  --color-ground-raised: #fffefb;
+  --color-panel: #ffffff;
+  --color-panel-edge: #ded9d0;
+  --color-signal: #9a6200;
+  --color-signal-dim: #c9a877;
+  --color-phosphor: #0f7a4a;
+  --color-magenta: #a3128a;
+  --color-alert: #b3272b;
+  --color-text: #14181a;
+  --color-text-muted: #5a6469;
+  --color-text-faint: #8a9498;
+  --color-on-signal: #fffefb;
+}
+
+/*
+ * "Screen" surface — an instrument display reads as a dark screen regardless of
+ * the ambient theme. Used by the hero graticule and other readouts so the
+ * identity survives in light mode (DESIGN.md §1.3).
+ */
+[data-surface="screen"] {
+  --color-ground: #0b0e0f;
+  --color-ground-raised: #12171a;
+  --color-panel: #1a1f22;
+  --color-panel-edge: #2a3237;
+  --color-signal: #ffb627;
+  --color-text: #e8edef;
+  --color-text-muted: #8a9498;
+  --color-text-faint: #5a6469;
+  color: var(--color-text);
+  background-color: var(--color-ground);
 }

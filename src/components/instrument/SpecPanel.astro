@@ -1,0 +1,78 @@
+---
+import type { ReviewPost } from "../../lib/cms/types"
+
+/**
+ * Spec readout for a review: a screen-printed panel of label/value pairs.
+ * Values are mono and tabular where numeric (DESIGN.md §2.2).
+ */
+interface Props {
+  post: ReviewPost
+}
+
+const { post } = Astro.props
+
+type Row = { label: string; value: string; numeric?: boolean }
+
+const rows: Row[] = [
+  post.brand && { label: "Brand", value: post.brand },
+  post.productName && { label: "Model", value: post.productName },
+  post.productType && { label: "Type", value: post.productType },
+  post.contentType && { label: "Format", value: post.contentType },
+  post.price !== null && {
+    label: "Price",
+    value: `£${Number.isInteger(post.price) ? post.price : post.price.toFixed(2)}`,
+    numeric: true,
+  },
+  post.rating !== null && { label: "Score", value: `${post.rating}/100`, numeric: true },
+].filter(Boolean) as Row[]
+---
+
+{
+  rows.length > 0 && (
+    <aside class="panel bezel" aria-labelledby="spec-heading">
+      <h2 id="spec-heading" class="label heading">
+        Specification
+      </h2>
+      <dl class="rows">
+        {rows.map((row) => (
+          <div class="row">
+            <dt class="label">{row.label}</dt>
+            <dd class:list={["value", { numeral: row.numeric }]}>{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </aside>
+  )
+}
+
+<style>
+  .panel {
+    max-width: var(--max-w-content);
+    margin: 2rem auto;
+    padding: 1.125rem 1.25rem;
+    background: var(--color-panel);
+    border-radius: var(--radius);
+  }
+
+  .heading {
+    margin-bottom: 0.875rem;
+    color: var(--color-signal);
+  }
+
+  .rows {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+    gap: 0.75rem 1.5rem;
+  }
+
+  .row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .value {
+    font-size: var(--text-small);
+    color: var(--color-text);
+  }
+</style>

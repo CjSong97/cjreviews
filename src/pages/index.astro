@@ -1,65 +1,155 @@
 ---
 import { getPublishedPosts } from "../lib/notion/adapter"
 import BaseLayout from "../layouts/BaseLayout.astro"
-import ReviewCard from "../components/ReviewCard.svelte"
+import RackGrid from "../components/rack/RackGrid.astro"
 
 const posts = await getPublishedPosts()
 const featured = posts.filter((p) => p.featured)
 const latest = posts.filter((p) => !p.featured)
+
+/*
+ * Phase 1 ships a static masthead here. The animated ResponseHero and the
+ * pinned SignalChain replace it in Phase 2; the markup is deliberately shaped
+ * like the screen it will become so the swap is contained.
+ */
 ---
 
 <BaseLayout
   description="Honest reviews of earphones, headphones, and games by CJ."
   canonicalUrl={Astro.url.href}
 >
-  <div class="page-wrap">
-    {featured.length > 0 && (
-      <section class="section" aria-labelledby="featured-heading">
-        <h2 id="featured-heading" class="section-title">Featured</h2>
-        <div class="grid grid-featured">
-          {featured.map((post) => (
-            <ReviewCard post={post} client:load />
-          ))}
-        </div>
-      </section>
-    )}
+  <section class="masthead" data-surface="screen" aria-labelledby="masthead-heading">
+    <div class="shell masthead-inner">
+      <p class="label channel">Signal · in</p>
+      <h1 id="masthead-heading" class="hero-title">
+        Honest reviews of<br /><span class="accent">what you listen with</span>
+      </h1>
+      <p class="hero-sub">
+        Earphones, headphones and the occasional game — measured against what they
+        actually cost.
+      </p>
+      <a href="/reviews" class="cta">
+        Browse the rack
+        <span aria-hidden="true">→</span>
+      </a>
+    </div>
+    <div class="graticule" aria-hidden="true"></div>
+  </section>
+
+  <div class="shell page">
+    {
+      featured.length > 0 && (
+        <section class="section" aria-labelledby="featured-heading">
+          <h2 id="featured-heading" class="label section-title">
+            Featured
+          </h2>
+          <RackGrid posts={featured} eagerCount={2} wide={true} />
+        </section>
+      )
+    }
 
     <section class="section" aria-labelledby="latest-heading">
-      <h2 id="latest-heading" class="section-title">Latest Reviews</h2>
-      <div class="grid">
-        {latest.map((post) => (
-          <ReviewCard post={post} client:load />
-        ))}
-      </div>
+      <h2 id="latest-heading" class="label section-title">
+        Latest reviews
+      </h2>
+      <RackGrid posts={latest} eagerCount={featured.length > 0 ? 0 : 3} />
     </section>
   </div>
 </BaseLayout>
 
 <style>
-  .page-wrap {
-    max-width: 80rem;
-    margin: 0 auto;
-    padding: 2.5rem 1.25rem 4rem;
+  .masthead {
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid var(--color-panel-edge);
+  }
+
+  .masthead-inner {
+    position: relative;
+    z-index: 1;
+    padding-block: clamp(3.5rem, 10vw, 7rem);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .channel {
+    color: var(--color-signal);
+  }
+
+  .hero-title {
+    font-size: var(--text-hero);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--color-text);
+  }
+
+  .accent {
+    color: var(--color-signal);
+  }
+
+  .hero-sub {
+    max-width: 46ch;
+    font-size: var(--text-article);
+    color: var(--color-text-muted);
+    text-wrap: pretty;
+  }
+
+  .cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.625rem 1.125rem;
+    border-radius: var(--radius);
+    background: var(--color-signal);
+    color: var(--color-on-signal);
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: var(--text-small);
+    text-decoration: none;
+    transition: transform var(--duration-fast) var(--ease-instrument);
+  }
+
+  .cta:hover,
+  .cta:focus-visible {
+    transform: translateY(-1px);
+  }
+
+  /*
+   * A static frequency-response graticule: log-spaced vertical rules and even
+   * horizontal dB lines. Phase 2 draws the live trace over this.
+   */
+  .graticule {
+    position: absolute;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(to right, var(--color-panel-edge) 0 1px, transparent 1px 100%),
+      repeating-linear-gradient(to bottom, var(--color-panel-edge) 0 1px, transparent 1px 60px);
+    background-size:
+      88px 100%,
+      100% 100%;
+    opacity: 0.35;
+    mask-image: linear-gradient(to top, black, transparent 85%);
+  }
+
+  .page {
+    padding-block: 3rem 4rem;
     display: flex;
     flex-direction: column;
     gap: 3rem;
   }
 
   .section-title {
-    font-family: var(--font-serif, serif);
-    font-size: 1.375rem;
-    font-weight: 600;
-    color: var(--color-text, #111827);
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.125rem;
+    color: var(--color-signal);
   }
 
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
-    gap: 1.25rem;
-  }
-
-  .grid-featured {
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  @media (prefers-reduced-motion: reduce) {
+    .cta:hover,
+    .cta:focus-visible {
+      transform: none;
+    }
   }
 </style>

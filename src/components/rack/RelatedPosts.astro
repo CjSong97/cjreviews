@@ -1,0 +1,33 @@
+---
+import type { ReviewPost } from "../../lib/cms/types"
+import RackGrid from "./RackGrid.astro"
+
+interface Props {
+  posts: ReviewPost[]
+}
+
+const { posts } = Astro.props
+---
+
+{
+  posts.length > 0 && (
+    <section class="related" aria-labelledby="related-heading">
+      <h2 id="related-heading" class="label heading">
+        Signal chain · related
+      </h2>
+      <RackGrid posts={posts} />
+    </section>
+  )
+}
+
+<style>
+  .related {
+    margin-top: 3.5rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--color-panel-edge);
+  }
+
+  .heading {
+    margin-bottom: 1.125rem;
+  }
+</style>

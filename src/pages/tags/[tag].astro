@@ -1,22 +1,30 @@
 ---
-import { getPublishedPosts } from "../../lib/notion/adapter"
+import { getPostsByTag, getCanonicalTagName } from "../../lib/notion/adapter"
 import BaseLayout from "../../layouts/BaseLayout.astro"
 import RackGrid from "../../components/rack/RackGrid.astro"
 
-const posts = await getPublishedPosts()
+const { tag } = Astro.params
+
+const canonical = tag ? await getCanonicalTagName(tag) : null
+if (!canonical) {
+  return new Response(null, { status: 404, statusText: "Tag not found" })
+}
+
+const posts = await getPostsByTag(canonical)
+const count = posts.length
 ---
 
 <BaseLayout
-  title="Reviews"
-  description="All earphone, headphone, and game reviews by CJ."
+  title={canonical}
+  description={`Every CJ Reviews review tagged ${canonical}.`}
   canonicalUrl={Astro.url.href}
 >
   <div class="shell page">
     <header class="head">
-      <p class="label">The rack</p>
-      <h1 class="title">Reviews</h1>
+      <p class="label">Tag</p>
+      <h1 class="title">{canonical}</h1>
       <p class="count">
-        <span class="numeral">{posts.length}</span> published
+        <span class="numeral">{count}</span> {count === 1 ? "review" : "reviews"}
       </p>
     </header>
 

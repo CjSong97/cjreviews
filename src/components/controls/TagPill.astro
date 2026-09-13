@@ -1,0 +1,44 @@
+---
+/**
+ * A tag as a screen-printed legend on the panel.
+ *
+ * Renders an <a> when it links somewhere and a <span> otherwise, so a
+ * non-navigating pill is never announced as a link.
+ */
+interface Props {
+  tag: string
+  href?: string
+}
+
+const { tag, href } = Astro.props
+---
+
+{
+  href ? (
+    <a href={href} class="pill label">
+      {tag}
+    </a>
+  ) : (
+    <span class="pill label">{tag}</span>
+  )
+}
+
+<style>
+  .pill {
+    display: inline-block;
+    padding: 0.1875rem 0.5rem;
+    border: 1px solid var(--color-panel-edge);
+    border-radius: var(--radius-sm);
+    background: var(--color-ground-raised);
+    text-decoration: none;
+    transition:
+      border-color var(--duration-fast) var(--ease-instrument),
+      color var(--duration-fast) var(--ease-instrument);
+  }
+
+  a.pill:hover,
+  a.pill:focus-visible {
+    border-color: var(--color-signal);
+    color: var(--color-signal);
+  }
+</style>

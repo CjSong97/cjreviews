@@ -279,6 +279,32 @@ export async function getAllTags(): Promise<string[]> {
 }
 
 /**
+ * Returns published posts carrying a tag, matched case-insensitively.
+ *
+ * Tag links are generated as `/tags/${tag.toLowerCase()}`, but Notion stores the
+ * original casing, so the comparison has to be case-insensitive in both
+ * directions. Filtering in memory rather than via the API keeps the published
+ * and status rules in exactly one place.
+ */
+export async function getPostsByTag(tag: string): Promise<ReviewPost[]> {
+  const wanted = tag.trim().toLowerCase()
+  if (!wanted) return []
+
+  const posts = await getPublishedPosts()
+  return posts.filter((p) => p.tags.some((t) => t.toLowerCase() === wanted))
+}
+
+/**
+ * Resolves a lowercased tag slug back to the canonical casing Notion stores, so
+ * a tag page can display "IEM" rather than "iem".
+ */
+export async function getCanonicalTagName(tag: string): Promise<string | null> {
+  const wanted = tag.trim().toLowerCase()
+  const all = await getAllTags()
+  return all.find((t) => t.toLowerCase() === wanted) ?? null
+}
+
+/**
  * Practical related-posts heuristic:
  * - Prefer same productType, then overlap tags
  * - Exclude same slug
