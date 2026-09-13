@@ -5,7 +5,7 @@ import type { APIContext } from "astro"
 export async function GET(context: APIContext) {
   const posts = await getPublishedPosts()
 
-  return rss({
+  const feed = await rss({
     title: "CJ Reviews",
     description: "Honest reviews of earphones, headphones, and games by CJ.",
     site: context.site!.toString(),
@@ -17,4 +17,12 @@ export async function GET(context: APIContext) {
     })),
     customData: `<language>en-gb</language>`,
   })
+
+  // The feed is now rendered on demand, so give the edge an explicit TTL
+  // instead of letting it default.
+  feed.headers.set(
+    "Cache-Control",
+    "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
+  )
+  return feed
 }

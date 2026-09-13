@@ -2,6 +2,11 @@ import type { PageObjectResponse, RichTextItemResponse } from "@notionhq/client/
 import { z } from "zod"
 import type { ReviewPost, ContentType, ProductType } from "../cms/types"
 import { getNotionClient } from "./client"
+import {
+  resolveBlockImageSource,
+  resolvePageCoverSource,
+  toPublicImageUrl,
+} from "./images"
 
 const NOTION_DATA_SOURCE_ID = import.meta.env.NOTION_DATA_SOURCE_ID
 if (!NOTION_DATA_SOURCE_ID) {
@@ -89,22 +94,13 @@ function getDate(props: PageObjectResponse["properties"], name: string): string 
   return null
 }
 
+/**
+ * Notion-hosted covers get a stable proxy URL rather than their raw signed S3
+ * URL, which would expire an hour after this runs. External covers pass through.
+ */
 function getCoverImage(page: PageObjectResponse): string | null {
-  // Check custom "Cover Image" files property first
-  const prop = page.properties["Cover Image"]
-  if (prop?.type === "files" && prop.files.length > 0) {
-    const first = prop.files[0]
-    if (first.type === "file") return first.file.url
-    if (first.type === "external") return first.external.url
-  }
-
-  // Fall back to native Notion page cover (the banner set in the Notion UI)
-  if (page.cover) {
-    if (page.cover.type === "file") return page.cover.file.url
-    if (page.cover.type === "external") return page.cover.external.url
-  }
-
-  return null
+  const source = resolvePageCoverSource(page)
+  return toPublicImageUrl(source, "page", page.id, page.last_edited_time)
 }
 
 function hasStatusProperty(props: PageObjectResponse["properties"]): boolean {
@@ -136,7 +132,8 @@ const ReviewPostSchema: z.ZodType<ReviewPost> = z.object({
   rating: z.number().nullable(),
   price: z.number().nullable(),
   description: z.string().nullable(),
-  coverImage: z.string().url().nullable(),
+  // Not .url(): Notion-hosted covers become a site-relative proxy path.
+  coverImage: z.string().min(1).nullable(),
   seoTitle: z.string().nullable(),
   seoDescription: z.string().nullable(),
   publishedAt: z.string().nullable(),
@@ -262,7 +259,12 @@ export async function getPostBySlug(slug: string): Promise<ReviewPost | null> {
 
   const pages = response.results.filter((p): p is PageObjectResponse => p.object === "page")
   const page = pages.find(statusPostFilterIfNeeded)
-  return page ? pageToReviewPost(page) : null
+  if (page) return pageToReviewPost(page)
+
+  // The query above can only match "Canonical Slug", but getSlug() also accepts
+  // a formula "Slug" fallback. Posts relying on that fallback are found here.
+  const all = await getPublishedPosts()
+  return all.find((p) => p.slug === slug) ?? null
 }
 
 /**
@@ -308,6 +310,23 @@ export async function getRelatedPosts(
 }
 
 /**
+ * Rewrites an image block's expiring Notion URL to the stable proxy path, so
+ * the renderer can stay unaware that Notion URLs expire at all.
+ */
+function withStableImageUrl(block: any): any {
+  const source = resolveBlockImageSource(block)
+  if (!source || source.type === "external") return block
+
+  const url = toPublicImageUrl(source, "block", block.id, block.last_edited_time)
+
+  // Drop the original `file` key rather than spreading over it: keeping it
+  // would serialize the expiring, credential-bearing S3 URL into the page's
+  // hydration payload even though nothing renders from it.
+  const { file: _discarded, ...rest } = block.image
+  return { ...block, image: { ...rest, type: "external", external: { url } } }
+}
+
+/**
  * Fetches the page blocks for rendering.
  * - Accepts a page id or a page url.
  * - Handles pagination.
@@ -326,7 +345,7 @@ export async function getPostBlocks(pageIdOrUrl: string) {
       page_size: 100,
     })
 
-    results.push(...resp.results)
+    results.push(...resp.results.map(withStableImageUrl))
     if (!resp.has_more) break
     cursor = resp.next_cursor ?? undefined
   }

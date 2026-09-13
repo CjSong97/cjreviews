@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css"
+import Analytics from "@vercel/analytics/astro"
 import SiteHeader from "../components/SiteHeader.astro"
 import SiteFooter from "../components/SiteFooter.astro"
 
@@ -12,6 +13,10 @@ interface Props {
 
 const { title, description, ogImage, canonicalUrl } = Astro.props
 const siteTitle = title ? `${title} — CJ Reviews` : "CJ Reviews"
+
+// Cover images are site-relative proxy paths, but social crawlers need an
+// absolute URL.
+const ogImageUrl = ogImage ? new URL(ogImage, Astro.site ?? Astro.url).href : undefined
 ---
 
 <html lang="en">
@@ -28,7 +33,7 @@ const siteTitle = title ? `${title} — CJ Reviews` : "CJ Reviews"
 
     <meta property="og:title" content={siteTitle} />
     {description && <meta property="og:description" content={description} />}
-    {ogImage && <meta property="og:image" content={ogImage} />}
+    {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
   </head>
   <body>
     <SiteHeader />
@@ -36,5 +41,6 @@ const siteTitle = title ? `${title} — CJ Reviews` : "CJ Reviews"
       <slot />
     </main>
     <SiteFooter />
+    <Analytics />
   </body>
 </html>

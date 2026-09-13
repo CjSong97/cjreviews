@@ -1,20 +1,17 @@
 ---
-import { getPublishedPosts, getPostBlocks, getRelatedPosts } from "../../lib/notion/adapter"
-import type { ReviewPost } from "../../lib/cms/types"
+import { getPostBySlug, getPostBlocks, getRelatedPosts } from "../../lib/notion/adapter"
 import BaseLayout from "../../layouts/BaseLayout.astro"
 import ReviewHero from "../../components/ReviewHero.svelte"
 import NotionRenderer from "../../components/NotionRenderer.svelte"
 import RelatedPosts from "../../components/RelatedPosts.svelte"
 
-export async function getStaticPaths() {
-  const posts = await getPublishedPosts()
-  return posts.map((post) => ({
-    params: { slug: post.slug },
-    props: { post },
-  }))
+const { slug } = Astro.params
+const post = slug ? await getPostBySlug(slug) : null
+
+if (!post) {
+  return new Response(null, { status: 404, statusText: "Review not found" })
 }
 
-const { post } = Astro.props as { post: ReviewPost }
 const [blocks, related] = await Promise.all([
   getPostBlocks(post.id),
   getRelatedPosts(post, { limit: 4 }),
