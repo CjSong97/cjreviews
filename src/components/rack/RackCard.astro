@@ -18,12 +18,22 @@ interface Props {
   post: ReviewPost
   /** Cards above the fold should not lazy-load. */
   eager?: boolean
+  /**
+   * Heading level for the card title. Listing pages have no intervening <h2>,
+   * so they pass 2 to avoid an h1 -> h3 skip.
+   */
+  headingLevel?: 2 | 3
 }
 
-const { post, eager = false } = Astro.props
+const { post, eager = false, headingLevel = 3 } = Astro.props
 
+const Heading = `h${headingLevel}` as "h2" | "h3"
 const isGame = post.productType === "Game"
 const overline = [post.brand, post.productName].filter(Boolean).join(" · ")
+
+// Rendered conditionally rather than hidden with :empty, which never matches
+// because Astro leaves whitespace text nodes inside the element.
+const hasReadout = post.rating !== null || post.price !== null
 ---
 
 <article class:list={["card", "bezel", { console: isGame }]}>
@@ -52,15 +62,19 @@ const overline = [post.brand, post.productName].filter(Boolean).join(" · ")
 
     <div class="body">
       {overline && <p class="label overline">{overline}</p>}
-      <h3 class="title">{post.title}</h3>
+      <Heading class="title">{post.title}</Heading>
       {post.description && <p class="excerpt">{post.description}</p>}
     </div>
   </a>
 
-  <footer class="readout">
-    {post.rating !== null && <RatingBadge rating={post.rating} />}
-    {post.price !== null && <PriceDisplay price={post.price} />}
-  </footer>
+  {
+    hasReadout && (
+      <footer class="readout">
+        {post.rating !== null && <RatingBadge rating={post.rating} />}
+        {post.price !== null && <PriceDisplay price={post.price} />}
+      </footer>
+    )
+  }
 </article>
 
 <style>
@@ -156,7 +170,7 @@ const overline = [post.brand, post.productName].filter(Boolean).join(" · ")
   }
 
   .overline {
-    color: var(--color-text-faint);
+    color: var(--color-text-muted);
   }
 
   .title {
@@ -192,10 +206,6 @@ const overline = [post.brand, post.productName].filter(Boolean).join(" · ")
     margin-top: auto;
     padding: 0.625rem 1rem 0.875rem;
     border-top: 1px solid var(--color-panel-edge);
-  }
-
-  .readout:empty {
-    display: none;
   }
 
   @media (prefers-reduced-motion: reduce) {

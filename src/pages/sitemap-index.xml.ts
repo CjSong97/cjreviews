@@ -1,5 +1,5 @@
 import type { APIContext } from "astro"
-import { getPublishedPosts } from "../lib/notion/adapter"
+import { getAllTags, getPublishedPosts } from "../lib/notion/adapter"
 
 /**
  * Dynamic sitemap, replacing @astrojs/sitemap.
@@ -36,10 +36,15 @@ export async function GET(context: APIContext) {
     .sort()
     .at(-1)
 
+  // Tag pages are real crawlable content, so they belong here too.
+  const tags = await getAllTags()
+
   const entries = [
     urlEntry(`${site}/`, newest),
     urlEntry(`${site}/reviews/`, newest),
+    urlEntry(`${site}/tags/`, newest),
     ...posts.map((post) => urlEntry(`${site}/reviews/${post.slug}/`, post.updatedAt)),
+    ...tags.map((tag) => urlEntry(`${site}/tags/${encodeURIComponent(tag.toLowerCase())}/`, newest)),
   ]
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

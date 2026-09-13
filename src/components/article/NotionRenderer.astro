@@ -13,9 +13,26 @@ import ProxyImage from "../media/ProxyImage.astro"
  */
 interface Props {
   blocks: any[]
+  /**
+   * Title of the review these blocks belong to. Used to give uncaptioned images
+   * alt text that at least identifies the subject, instead of one generic
+   * string repeated across every image on the site.
+   */
+  postTitle?: string
 }
 
-const { blocks } = Astro.props
+const { blocks, postTitle } = Astro.props
+
+/**
+ * A Notion caption is the only real description we have, so it wins. Without
+ * one the best available fallback is the review's subject — a genuinely
+ * descriptive alt would have to come from a caption in Notion.
+ */
+function imageAlt(caption: string): string {
+  if (caption) return caption
+  // Titles usually already end in "Review", so don't append the word again.
+  return postTitle ? `Photograph from ${postTitle}` : "Photograph from this review"
+}
 
 function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -84,6 +101,29 @@ function groupBlocks(input: any[]): Group[] {
 
 const groups = groupBlocks(blocks ?? [])
 
+/**
+ * Maps Notion heading levels to HTML heading levels without skipping.
+ *
+ * Authors use whichever Notion heading levels they like — several reviews start
+ * at heading_2 — so a fixed heading_1 -> h2 mapping produces an h1 -> h3 jump on
+ * those posts. Instead, whichever level is shallowest in this document becomes
+ * <h2> (the page <h1> is the review title), and deeper levels follow relative to
+ * it, clamped at <h6>.
+ */
+const HEADING_TYPES = ["heading_1", "heading_2", "heading_3"] as const
+
+const usedDepths = (blocks ?? [])
+  .map((b: any) => HEADING_TYPES.indexOf(b?.type))
+  .filter((i: number) => i >= 0)
+
+const shallowest = usedDepths.length > 0 ? Math.min(...usedDepths) : 0
+
+function headingTag(blockType: string): "h2" | "h3" | "h4" | "h5" | "h6" {
+  const depth = HEADING_TYPES.indexOf(blockType as (typeof HEADING_TYPES)[number])
+  const level = Math.min(6, 2 + Math.max(0, depth - shallowest))
+  return `h${level}` as "h2" | "h3" | "h4" | "h5" | "h6"
+}
+
 /** Notion image blocks arrive pre-rewritten to the proxy URL by the adapter. */
 function imageUrl(block: any): string | null {
   const image = block.image
@@ -121,11 +161,11 @@ function imageUrl(block: any): string | null {
       case "paragraph":
         return <p set:html={renderRichText(block.paragraph.rich_text)} />
       case "heading_1":
-        return <h2 set:html={renderRichText(block.heading_1.rich_text)} />
       case "heading_2":
-        return <h3 set:html={renderRichText(block.heading_2.rich_text)} />
-      case "heading_3":
-        return <h4 set:html={renderRichText(block.heading_3.rich_text)} />
+      case "heading_3": {
+        const Tag = headingTag(block.type)
+        return <Tag set:html={renderRichText(block[block.type].rich_text)} />
+      }
       case "quote":
         return <blockquote set:html={renderRichText(block.quote.rich_text)} />
       case "divider":
@@ -155,7 +195,7 @@ function imageUrl(block: any): string | null {
           <figure>
             <ProxyImage
               src={src}
-              alt={caption || "Photograph from this review"}
+              alt={imageAlt(caption)}
               width={1280}
               height={720}
               sizes="(max-width: 768px) 100vw, 68ch"
@@ -192,6 +232,13 @@ function imageUrl(block: any): string | null {
   :global(.article-body h4) {
     font-size: 1.125rem;
     margin-top: 1.5rem;
+  }
+
+  /* Reachable when a document nests deeply enough after normalisation. */
+  :global(.article-body h5),
+  :global(.article-body h6) {
+    font-size: 1rem;
+    margin-top: 1.25rem;
   }
 
   :global(.article-body a) {
@@ -261,7 +308,7 @@ function imageUrl(block: any): string | null {
     font-family: var(--font-mono);
     font-size: var(--text-label);
     letter-spacing: 0.04em;
-    color: var(--color-text-faint);
+    color: var(--color-text-muted);
     text-align: center;
   }
 

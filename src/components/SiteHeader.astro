@@ -59,6 +59,10 @@ const currentPath = Astro.url.pathname
     position: sticky;
     top: 0;
     z-index: 100;
+    /* Solid fallback first: where color-mix is unsupported the declaration is
+       dropped, and a sticky header with no background lets content scroll
+       through it. */
+    background: var(--color-ground);
     background: color-mix(in srgb, var(--color-ground) 88%, transparent);
     border-bottom: 1px solid var(--color-panel-edge);
     backdrop-filter: blur(10px);
@@ -93,7 +97,7 @@ const currentPath = Astro.url.pathname
   }
 
   .mark-dim {
-    color: var(--color-text-faint);
+    color: var(--color-text-muted);
     margin-left: 0.125rem;
   }
 

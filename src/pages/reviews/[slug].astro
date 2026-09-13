@@ -32,13 +32,13 @@ const seoDesc = post.seoDescription ?? post.description ?? ""
   <div class="shell page">
     <ReviewHero post={post} />
 
+    <SpecPanel post={post} />
+
     <article>
       <ArticleBody>
-        <NotionRenderer blocks={blocks} />
+        <NotionRenderer blocks={blocks} postTitle={post.title} />
       </ArticleBody>
     </article>
-
-    <SpecPanel post={post} />
 
     <RelatedPosts posts={related} />
   </div>

@@ -13,13 +13,19 @@ interface Props {
   eagerCount?: number
   /** Slightly wider columns, for a short featured row. */
   wide?: boolean
+  /** Forwarded to each card; listing pages with no <h2> should pass 2. */
+  headingLevel?: 2 | 3
 }
 
-const { posts, eagerCount = 0, wide = false } = Astro.props
+const { posts, eagerCount = 0, wide = false, headingLevel = 3 } = Astro.props
 ---
 
 <div class:list={["grid", { wide }]}>
-  {posts.map((post, i) => <RackCard post={post} eager={i < eagerCount} />)}
+  {
+    posts.map((post, i) => (
+      <RackCard post={post} eager={i < eagerCount} headingLevel={headingLevel} />
+    ))
+  }
 </div>
 
 <style>
