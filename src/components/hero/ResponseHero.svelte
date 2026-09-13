@@ -94,8 +94,7 @@
   onMount(() => {
     if (!canAnimate()) return // reduced motion keeps the static SVG trace
 
-    live = true
-
+    // canvas is bound by now: it is always in the DOM, never behind an {#if}.
     const ctx = canvas?.getContext("2d")
     if (!ctx || !canvas) return
 
@@ -184,6 +183,11 @@
         ctx.fill()
         ctx.restore()
       }
+
+      // Only now has the canvas actually painted, so the static SVG can stand
+      // down. Had setup failed above we would never reach here and the SVG would
+      // stay up — a degraded hero rather than a blank one.
+      live = true
 
       // Keep animating while the bump is still settling.
       if (bump > 0.001 && !pointerTarget) schedule()
@@ -304,9 +308,9 @@
       <path d={staticPath} />
     </svg>
 
-    {#if live}
-      <canvas class="trace" bind:this={canvas}></canvas>
-    {/if}
+    <!-- Never behind an {#if}: setting a flag does not flush the DOM, so a
+         conditional canvas would leave bind:this null throughout onMount. -->
+    <canvas class="trace" bind:this={canvas}></canvas>
 
     <div class="axis" aria-hidden="true">
       {#each freqTicks as hz}
