@@ -44,6 +44,7 @@ export async function GET(context: APIContext) {
     urlEntry(`${site}/reviews/`, newest),
     urlEntry(`${site}/tags/`, newest),
     urlEntry(`${site}/compare`, newest),
+    urlEntry(`${site}/about`, newest),
     ...posts.map((post) => urlEntry(`${site}/reviews/${post.slug}/`, post.updatedAt)),
     ...tags.map((tag) => urlEntry(`${site}/tags/${encodeURIComponent(tag.toLowerCase())}/`, newest)),
   ]
