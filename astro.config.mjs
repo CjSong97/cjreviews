@@ -20,7 +20,7 @@ export default defineConfig({
     },
   }),
   // Note: @astrojs/sitemap only enumerates build-time routes, so it emits
-  // nothing useful under `output: "server"`. See src/pages/sitemap.xml.ts.
+  // nothing useful under `output: "server"`. See src/pages/sitemap-index.xml.ts.
   integrations: [svelte()],
   vite: {
     plugins: [tailwindcss()],
