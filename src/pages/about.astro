@@ -1,0 +1,374 @@
+---
+import { getPublishedPosts } from "../lib/notion/adapter"
+import { summariseCatalogue } from "../lib/cms/catalogue"
+import BaseLayout from "../layouts/BaseLayout.astro"
+
+/**
+ * About CJ Reviews.
+ *
+ * Every biographical claim on this page comes from the approved facts in
+ * `agent-os/specs/2026-09-14-about-page/spec.md`. Nothing here may be expanded
+ * beyond that — a review site's only asset is being believed. CJ's real name and
+ * location are deliberately absent and must stay absent.
+ *
+ * Static throughout: no client directive, no island.
+ */
+const posts = await getPublishedPosts()
+const summary = summariseCatalogue(posts)
+
+function money(value: number): string {
+  return `£${Number.isInteger(value) ? value : value.toFixed(2)}`
+}
+
+type Figure = { label: string; value: string }
+
+const figures: Figure[] = [
+  { label: "Reviews published", value: String(summary.total) },
+  { label: "Earphones & headphones", value: String(summary.listening) },
+  { label: "Games", value: String(summary.games) },
+  // Ranges are omitted rather than shown empty: "0 – 0" would be a claim about
+  // the catalogue that isn't true.
+  summary.priceRange && {
+    label: "Price range",
+    value: `${money(summary.priceRange.min)} – ${money(summary.priceRange.max)}`,
+  },
+  summary.scoreRange && {
+    label: "Score range",
+    value: `${summary.scoreRange.min} – ${summary.scoreRange.max}`,
+  },
+].filter(Boolean) as Figure[]
+---
+
+<BaseLayout
+  title="About"
+  description="CJ reviews earphones, headphones and games — bought with his own money, scored on value for money, with no burn-in and no sponsored units."
+  canonicalUrl={Astro.url.href}
+>
+  <div class="shell page">
+    <header class="head">
+      <p class="label">Signal source</p>
+      <h1 class="title">About CJ Reviews</h1>
+      <p class="standfirst">
+        A one-person site about earphones, headphones, and games. No burn-in, no free units, no
+        scores without a price next to them.
+      </p>
+    </header>
+
+    <div class="intro">
+      {/*
+        Placeholder for a portrait that does not exist yet. Built in CSS/SVG from
+        theme tokens rather than shipped as an image, so it is theme-aware and
+        costs no request (DESIGN.md §1.2 forbids photoreal ornament). Swapping in
+        a real photograph means replacing this one element: the explicit
+        aspect-ratio holds the layout either way.
+      */}
+      <div class="portrait panel bezel">
+        <svg
+          class="trace"
+          viewBox="0 0 320 400"
+          width="320"
+          height="400"
+          aria-hidden="true"
+          focusable="false"
+          preserveAspectRatio="xMidYMid slice"
+        >
+          {/*
+            Colours are applied from the stylesheet below, not as presentation
+            attributes: var() in an SVG presentation attribute is not reliably
+            supported, and this panel has to follow the theme in both directions.
+          */}
+          <defs>
+            <linearGradient id="about-wash" x1="0" y1="0" x2="0" y2="1">
+              <stop class="wash-from" offset="0%"></stop>
+              <stop class="wash-to" offset="100%"></stop>
+            </linearGradient>
+          </defs>
+          <rect width="320" height="400" fill="url(#about-wash)"></rect>
+          <path
+            class="curve"
+            d="M0 268 C 54 268, 74 196, 116 188 S 186 224, 224 176 S 288 116, 320 132"
+          ></path>
+        </svg>
+      </div>
+
+      <div class="intro-copy prose">
+        <p>
+          I'm CJ. I review in-ear monitors, headphones, and games here, and I work as a Senior Data
+          Analyst the rest of the time.
+        </p>
+        <p>
+          This site is written by one person who buys his own gear. That's the whole editorial
+          policy.
+        </p>
+      </div>
+    </div>
+
+    <section class="section" aria-labelledby="audio-heading">
+      <h2 id="audio-heading" class="section-title">Eight years, starting at £15</h2>
+      <div class="prose">
+        <p>
+          Eight years ago I bought a pair of <a href="/reviews/blon-bl-03-review">Blon BL-03s</a>.
+          Fifteen pounds, and they sounded better than they had any right to. They started all of
+          this — and they're still on this site, scored 80, for exactly that reason.
+        </p>
+        <p>
+          These days I listen on a Kiwi Ears Allegro Mini running off an Android phone, or a Fosi
+          Audio DAC-Q4 at the desk. My favourite IEMs so far are the Mangird Tea Pro and the
+          <a href="/reviews/fiio-fh5-review">Fiio FH5</a>. For headphones, the Hifiman Edition XV.
+        </p>
+        <p>
+          Most of what gets reviewed here sits between £15 and £80. That isn't a budget constraint
+          I'm apologising for — it's the most interesting part of the market. The gap between a £20
+          IEM and a £2,000 one is real, but it is nowhere near as wide as the price difference
+          suggests, and finding where the value actually sits is the entire job.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="games-heading">
+      <h2 id="games-heading" class="section-title">And the games</h2>
+      <div class="prose">
+        <p>
+          I game on PC — RPGs, tactical games, action games, depending on what's holding my
+          attention.
+        </p>
+        <p>
+          Games sit alongside audio here for one reason: they get judged the same way. Bought with
+          my own money, played properly, scored on what you actually get for the price.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="method-heading">
+      <h2 id="method-heading" class="section-title">How I review</h2>
+      <dl class="method">
+        <div class="method-item">
+          <dt>No burn-in.</dt>
+          <dd>
+            I don't burn anything in. I've never been convinced it does what it's said to do — what
+            changes over those first hours is far more likely to be the listener than the driver. So
+            everything here is judged on how it sounds out of the box, which is how you'll hear it
+            too.
+          </dd>
+        </div>
+        <div class="method-item">
+          <dt>The same tracks, every time.</dt>
+          <dd>
+            I use a fixed set of reference tracks spanning several genres. Same material, same
+            order, every review — so what changes between them is the gear, not the music.
+          </dd>
+        </div>
+        <div class="method-item">
+          <dt>I buy everything myself.</dt>
+          <dd>
+            Nothing on this site was sent to me, and nothing here is sponsored. I would be open to
+            accepting review units in future. If that ever happens, it will be stated plainly on the
+            review it applies to, every time.
+          </dd>
+        </div>
+        <div class="method-item">
+          <dt>The score is value for money.</dt>
+          <dd>
+            A score here is a value-to-performance ratio, not an absolute performance ranking. A £15
+            IEM and a £100 headphone can both land in the 80s and mean quite different things.
+            Always read the price next to the score.
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    {
+      figures.length > 0 && (
+        <section class="panel bezel figures" aria-labelledby="figures-heading">
+          <h2 id="figures-heading" class="label figures-title">
+            What's here so far
+          </h2>
+          <dl class="figure-rows">
+            {figures.map((figure) => (
+              <div class="figure">
+                <dt class="label">{figure.label}</dt>
+                <dd class="numeral figure-value">{figure.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )
+    }
+
+    <section class="section" aria-labelledby="contact-heading">
+      <h2 id="contact-heading" class="section-title">Contact</h2>
+      <p class="prose">
+        Corrections, review requests, or anything else:
+        <a href="mailto:cjreviewsstuff@gmail.com">cjreviewsstuff@gmail.com</a>
+      </p>
+    </section>
+  </div>
+</BaseLayout>
+
+<style>
+  .page {
+    padding-block: 2.5rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+  }
+
+  .head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .title {
+    font-size: var(--text-h1);
+    color: var(--color-text);
+  }
+
+  .standfirst {
+    max-width: 56ch;
+    color: var(--color-text-muted);
+  }
+
+  /* ── Intro ──────────────────────────────────────────────────────────────── */
+
+  .intro {
+    display: grid;
+    gap: 1.75rem;
+    align-items: start;
+  }
+
+  @media (min-width: 768px) {
+    .intro {
+      grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
+      gap: 2.25rem;
+    }
+  }
+
+  .portrait {
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--color-panel);
+    /* Holds the slot's shape whether the placeholder or a real photo fills it,
+       so the later swap causes no layout shift. */
+    aspect-ratio: 4 / 5;
+  }
+
+  .trace {
+    width: 100%;
+    height: 100%;
+  }
+
+  .wash-from {
+    stop-color: var(--color-panel-edge);
+    stop-opacity: 0.55;
+  }
+
+  .wash-to {
+    stop-color: var(--color-panel);
+    stop-opacity: 0;
+  }
+
+  .curve {
+    fill: none;
+    stroke: var(--color-signal);
+    stroke-opacity: 0.34;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  .intro-copy > p:first-child {
+    font-size: var(--text-article);
+    color: var(--color-text);
+  }
+
+  /* ── Prose ──────────────────────────────────────────────────────────────── */
+
+  .prose {
+    /* Reading surface stays calm and capped (DESIGN.md §1.3). */
+    max-width: var(--max-w-content);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    color: var(--color-text);
+  }
+
+  .prose a {
+    color: var(--color-signal);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .prose a:hover,
+  .prose a:focus-visible {
+    text-decoration-thickness: 2px;
+  }
+
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .section-title {
+    font-size: var(--text-h2);
+    color: var(--color-text);
+  }
+
+  /* ── Method ─────────────────────────────────────────────────────────────── */
+
+  .method {
+    max-width: var(--max-w-content);
+    display: flex;
+    flex-direction: column;
+    gap: 1.375rem;
+  }
+
+  .method-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--color-panel-edge);
+  }
+
+  .method-item dt {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--color-signal);
+  }
+
+  .method-item dd {
+    color: var(--color-text);
+  }
+
+  /* ── Figures ────────────────────────────────────────────────────────────── */
+
+  .figures {
+    padding: 1.25rem 1.375rem 1.5rem;
+    border-radius: var(--radius);
+    background: var(--color-panel);
+  }
+
+  .figures-title {
+    display: block;
+    margin-bottom: 1rem;
+    color: var(--color-signal);
+  }
+
+  .figure-rows {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1.25rem 1.5rem;
+  }
+
+  .figure {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .figure-value {
+    font-size: var(--text-h3);
+    color: var(--color-text);
+  }
+</style>
